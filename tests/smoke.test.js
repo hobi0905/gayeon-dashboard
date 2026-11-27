@@ -52,6 +52,8 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok($('#pageTitle').textContent.trim() === 'My Dashboard', '기본 제목 표시', $('#pageTitle').textContent);
   ok($('#quoteText').textContent.includes('호비랑 서리'), '기본 인용구 표시');
   ok($$('.nav-btn').length === 4, '네비게이션 버튼 4개', $$('.nav-btn').length);
+  ok($$('.block-title').some(h => h.textContent.trim() === 'TO-DO List'), 'TODO 카드 제목 TO-DO List');
+  ok(!/SIMPLE TODO/.test($('#app').textContent), 'SIMPLE TODO 문구 제거');
   ok(($('#avatarImg').getAttribute('src') || '').includes('profile-avatar'), '프로필 아바타 표시', $('#avatarImg').getAttribute('src'));
   ok(!!$('#ddayCard .dday-num'), 'D-DAY 카드 렌더');
   const ddayText0 = $('#ddayCard').textContent;
@@ -426,6 +428,8 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.drow \.dday-pill,\.drow \.tag,\.drow \.icon-x\{[^}]*flex:0 0 auto/.test(css), '금액·태그·삭제는 내용만큼만');
   ok(/\.drow \.grow\{[^}]*flex:1 1 0[^}]*min-width:0/.test(css), '내역이 남는 폭을 갖음');
   ok(/\.dday-pill\.income\{/.test(css) && !/\.dday-pill\.in\{/.test(css), '수입 금액 전용 클래스(.in 충돌 제거)');
+  ok(/\.cover\{[^}]*height:clamp\(200px,24vw,320px\)/.test(css), '커버 사진 세로 높이 확대');
+  ok(/\.page-head\{[^}]*margin-top:18px/.test(css), '프로필·제목을 커버 아래로');
 
   console.log('▸ 날짜 상세 모달');
   click($('[data-act="modal-close"]'));

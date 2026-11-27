@@ -16,7 +16,7 @@
 - **왼쪽 사이드바 (26%)**
   - `NAVIGATION` — **STUDY / 가계부 / Wishlist / 메모** 네 버튼. 누르면 가운데 큰 팝업(Center Peek)이 열리고, 하위 섹션이 한 화면에 전부 스크롤로 펼쳐집니다.
   - `D-DAY` — STUDY의 "이번 달 시험·지원"과 실시간 연동
-  - `SIMPLE TODO` — 빠른 체크리스트
+  - `TO-DO List` — 빠른 체크리스트
   - `🎨 꾸미기 설정`
 - **오른쪽 메인 (74%)**
   - 파스텔 하늘색 플립 시계(시·분·초 + 요일) · 오늘 날씨(현 위치 또는 인천, Open-Meteo) · 아치형 cozy cat 카드
@@ -59,7 +59,7 @@
 npm install
 
 # 테스트
-npm test        # tests/smoke.test.js  (DOM 동작 135개)
+npm test        # tests/smoke.test.js  (DOM 동작 139개)
                 # tests/sync.test.js   (암호화 9개)
 ```
 
