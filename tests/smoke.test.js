@@ -1175,6 +1175,25 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   click($('[data-act="modal-close"]'));
   click($('[data-act="modal-close"]'));
 
+  /* 지난달이 적자면 1일 잔액이 마이너스 */
+  const bakFlow = { expenses: FIN.expenses, subs: FIN.subs, planned: FIN.planned };
+  FIN.expenses = bakFlow.expenses.filter(e => !String(e.date || '').startsWith('2026-12'))
+    .concat([mkRow({ date: '2026-12-05', title: '큰 지출', amount: 600000, cat: '생활', type: 'expense' })]);
+  FIN.subs = []; FIN.planned = [];
+  ok(w.__GD.carryoverAmount(2027, 1) === -100000, '④ 지난달이 적자면 1월 잔액은 마이너스(−100,000)', w.__GD.carryoverAmount(2027, 1));
+  click($('[data-act="open-finance"]'));
+  click($('[data-act="fin-today"]'));
+  click($('[data-act="fin-next"]'));
+  click($('[data-act="fin-next"]'));
+  ok($('#finMonthLabel').textContent.includes('1월'), '④ 가계부 1월로 이동', $('#finMonthLabel').textContent.trim().slice(0, 20));
+  const janInc = w.__GD.financeMonthItems('income');
+  ok(janInc.length === 1 && janInc[0].amount === -100000, '④ 1월 수입 내역에 마이너스 잔액', JSON.stringify(janInc));
+  ok(/−₩100,000/.test(calText($('#modalBody .stat.income'))), '④ 수입 카드도 −₩100,000', calText($('#modalBody .stat.income')));
+  const jan1Cell = $$('.fcal-day').find(c => c.dataset.date === '2027-01-01');
+  ok(!!jan1Cell && /-100,000/.test(calText(jan1Cell)), '④ 1월 1일 칸도 마이너스 잔액', calText(jan1Cell));
+  click($('[data-act="modal-close"]'));
+  FIN.expenses = bakFlow.expenses; FIN.subs = bakFlow.subs; FIN.planned = bakFlow.planned;
+
   console.log('▸ 새 스타일 연결');
   ok(/\.dotc\.saving\{/.test(css) && /\.dotc\.carry\{/.test(css), '달력 범례에 저축·잔액 점');
   ok(/\.dday-pill\.saving\{/.test(css) && /\.tag\.saving\{/.test(css) && /\.tag\.carry\{/.test(css), '저축·잔액 태그·알약 스타일');

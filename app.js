@@ -584,12 +584,14 @@ function monthHasData(y, m) {
   if ((state.finance.planned || []).some(p => p && String(p.date || '').startsWith(prefix))) return true;
   return false;
 }
-/* 전달 잔액 = 전달 수입(이월 포함) − 전달 지출(예정 포함) − 전달 저축·투자 */
-function carryoverAmount(y, m) {
+/* 전달 잔액 = 전달 수입(이월 포함) − 전달 지출(예정 포함) − 전달 저축·투자
+   depth는 이상하게 빠른 데이터가 있어도 계산이 끝없이 짙히지 않게 하는 안전장치 */
+function carryoverAmount(y, m, depth) {
+  if ((depth || 0) > 120) return 0;
   const [py, pm] = shiftMonth(y, m, -1);
   if (!monthHasData(py, pm)) return 0;
   const flow = monthFlow(py, pm);
-  return carryoverAmount(py, pm) + flow.income - flow.spendTotal - flow.saved;
+  return carryoverAmount(py, pm, (depth || 0) + 1) + flow.income - flow.spendTotal - flow.saved;
 }
 function carryoverOn(dateStr) {
   const s = String(dateStr || '');
