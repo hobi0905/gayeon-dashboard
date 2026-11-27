@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=25">
+<link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body data-theme="xmas">
 <div class="app" id="app">
@@ -115,7 +115,10 @@
 
         <section class="card cal-card">
           <div class="cal-head">
-            <div class="cal-title" id="calTitle">2026년 11월</div>
+            <button class="cal-title-btn" data-act="open-calendar" aria-label="이번 달 캘린더 크게 보기 · 전체 일정">
+              <span class="cal-title" id="calTitle">2026년 11월</span>
+              <span class="cal-open-pill">📅<span class="txt"> 크게 보기</span></span>
+            </button>
             <div class="cal-nav">
               <button class="mini-btn" data-act="cal-prev" aria-label="이전 달">‹</button>
               <button class="mini-btn wide" data-act="cal-today">오늘</button>
@@ -161,6 +164,6 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="app.js?v=18" defer></script>
+<script src="app.js?v=19" defer></script>
 </body>
 </html>

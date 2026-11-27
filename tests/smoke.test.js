@@ -703,7 +703,67 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.habit-grid \.hn \.hx,\.habit-grid \.hn \.he\{[^}]*opacity:0/.test(css), '습관 수정·삭제 버튼 스타일');
   ok(/\.note-card \.ntag\{/.test(css), '메모 태그 스타일');
   const html2 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  ok(/styles\.css\?v=25/.test(html2) && /app\.js\?v=18/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
+  ok(/styles\.css\?v=26/.test(html2) && /app\.js\?v=19/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
+
+  console.log('▸ 큰 상세 캘린더 모달');
+  click($('[data-act="modal-close"]'));
+  ok(!!$('.cal-title-btn[data-act="open-calendar"]') && !!$('#calTitle'), '캘린더 제목이 크게 보기 버튼');
+  ok(!!$('.cal-title-btn .cal-open-pill'), '📅 크게 보기 배지');
+  click($('.cal-title-btn'));
+  await tick();
+  ok($('#modalRoot').hidden === false && /캘린더/.test($('#modalTitle').textContent), '제목를 누르면 캘린더 모달 열림', $('#modalTitle').textContent);
+  ok($('#modalBox').classList.contains('wide'), '캘린더 모달은 넓은 창');
+  ok(!!$('#calxGrid') && $$('#calxGrid .calx-cell').filter(c => !c.classList.contains('out')).length >= 28, '큰 월간 달력 렌더', $$('#calxGrid .calx-cell').length);
+  ok(/11월/.test($('#calxMonth').textContent), '모달 월 표시', $('#calxMonth').textContent);
+  ok(!!$('#calxAgenda') && /컴활접수/.test($('#calxAgenda').textContent), '아젠다에 이번 달 일정', ($('#calxAgenda').textContent || '').slice(0, 60));
+  ok(/지안수마켓/.test($('#calxAgenda').textContent) && /베스트피씨 알바/.test($('#calxAgenda').textContent), '아젠다에 개인일정·알바도 표시');
+  ok(/전체 일정/.test($('#modalBody').textContent), '이번 달 전체 일정 제목');
+  /* 날짜 클릭 → 하단 패널 상세 (모달은 그대로) */
+  const d29 = $$('#calxGrid .calx-cell').find(c => c.dataset.date === '2026-11-29');
+  ok(!!d29, '29일 칸 있음');
+  click(d29);
+  await tick();
+  ok(!!$('.calx-day') && /지안수마켓/.test($('.calx-day').textContent), '날짜를 누르면 그 날 상세 패널', $('.calx-day') && $('.calx-day').textContent.replace(/\s+/g, ' ').slice(0, 50));
+  ok(!!$$('#calxGrid .calx-cell.sel').length, '고른 날짜 표시');
+  ok($('#modalTitle').textContent.includes('캘린더'), '큰 캘린더는 그대로 유지됨');
+  /* 월 이동 */
+  click($('[data-act="calx-next"]'));
+  await tick();
+  ok(/12월/.test($('#calxMonth').textContent), '다음 달로 이동', $('#calxMonth').textContent);
+  ok(/컴활 2급 필기/.test($('#calxAgenda').textContent), '12월 일정·시험이 아젠다에', ($('#calxAgenda').textContent || '').slice(0, 40));
+  ok(!$('.calx-day') || !$('.calx-day .drow'), '월을 옮기면 날짜 선택은 비워짐');
+  click($('[data-act="calx-today"]'));
+  await tick();
+  ok(/11월/.test($('#calxMonth').textContent), '오늘 버튼으로 이번 달 복귀', $('#calxMonth').textContent);
+  /* 예정 지출도 아젠다에 */
+  w.__GD.state.finance.planned.push({ id: 'test-plan-1', name: '테스트 정기결제', date: '2026-11-30', amount: 12000 });
+  click($('[data-act="calx-today"]')); await tick();
+  ok(/테스트 정기결제/.test($('#calxAgenda').textContent) && /12,000/.test($('#calxAgenda').textContent), '아젠다에 예정 지출도 표시');
+  w.__GD.state.finance.planned = w.__GD.state.finance.planned.filter(p => p.id !== 'test-plan-1');
+  /* 날짜 상세 모달로 이동 후에도 큰 캘린더로 돌아오기 */
+  const d28 = $$('#calxGrid .calx-cell').find(c => c.dataset.date === '2026-11-28');
+  click(d28); await tick();
+  click($('[data-act="calx-open-day"]')); await tick();
+  ok(/11월 28일/.test($('#modalTitle').textContent), '날짜 상세 모달로 이동', $('#modalTitle').textContent);
+  click($('[data-act="modal-close"]')); await tick();
+  ok($('#modalRoot').hidden === false && $('#modalTitle').textContent.includes('캘린더'), '닫으면 큰 캘린더로 복귀', $('#modalTitle').textContent);
+  click($('[data-act="modal-close"]')); await tick();
+  ok($('#modalRoot').hidden === true, '한 번 더 닫으면 홈');
+  /* 홈의 날짜 칸은 기존처럼 그 날짜 상세 모달 */
+  const home28 = $$('.cal-grid:not(#calxGrid) .cal-cell').find(c => c.dataset.date === '2026-11-28');
+  click(home28);
+  ok(/11월 28일/.test($('#modalTitle').textContent), '홈 날짜 칸은 그 날짜 상세 모달');
+  click($('[data-act="modal-close"]'));
+  ok(/\.calx\{[^}]*grid-template-columns:minmax\(0,1\.22fr\) minmax\(0,\.78fr\)/.test(css), '큰 캘린더 2열 레이아웃');
+  ok(/@media \(max-width:980px\)\{ \.calx\{grid-template-columns:1fr/.test(css), '아이패드·모바일은 1열로');
+  ok(/\.calx-cell\{[^}]*min-height:clamp\(84px,8\.6vw,116px\)/.test(css), '큰 달력 칸이 넉넉함');
+  ok(/body\[data-theme="xmas"\] \.calx-cell\.sel\{/.test(css) && /body\[data-theme="xmas"\] \.ag-day\{/.test(css), '크리스마스 테마 캘린더 색상');
+  ok(/\.modal\.wide\{width:min\(1120px,100%\)/.test(css), '넓은 모달 폭 규칙');
+  ok(/@media \(min-width:981px\)\{\s*\.modal\.wide\{height:/.test(css) && /\.modal\.wide \.modal-body\{overflow:hidden/.test(css), 'PC에서 한 달 전체가 보이게 높이 고정');
+  ok(/\.cal-chips\{gap:3px;margin-bottom:2px;align-self:stretch;width:100%;\}/.test(css), '모바일 일정 막대가 폭을 갖음');
+  ok(/\.calx-cell \.cal-chips \.chip\{width:6px;height:6px/.test(css), '모바일 큰 달력은 일정을 점으로');
+  ok(/\.cal-title-btn\{[^}]*cursor:pointer/.test(css), '캘린더 제목 클릭 가능 스타일');
+  ok(/body\[data-theme="xmas"\] \.cal-open-pill\{/.test(css), '크리스마스 테마 크게 보기 배지');
 
   console.log(results.join('\n'));
   console.log(`\n결과: ${pass} 통과 / ${fail} 실패`);

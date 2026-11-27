@@ -193,6 +193,9 @@ let pendingSeedCleanup = false;
 let viewMonth = new Date(); viewMonth.setDate(1);
 let finMonth = new Date(); finMonth.setDate(1);
 let finSel = todayISO();
+let calxMonth = new Date(); calxMonth.setDate(1);
+let calxSel = null;          /* 큰 캘린더에서 고른 날짜 */
+let calxReturn = false;      /* 날짜 상세 모달을 닫으면 큰 캘린더로 돌아가기 */
 let editingExamId = null;
 let openModalType = null;
 let openModalArg = null;
@@ -470,8 +473,138 @@ function renderCalendar() {
   }).join('');
 }
 
+/* ───────────── 큰 캘린더 모달 ───────────── */
+function dayBrief(ds) {
+  const exms = examsOn(ds);
+  const evs = eventsOn(ds).filter(e => !exms.some(x =>
+    String(e.title).includes(x.name) || String(x.name).includes(String(e.title))));
+  return { exms, evs, plans: plannedOn(ds), spent: spentOn(ds), income: incomeOn(ds) };
+}
+function monthAgenda(y, m) {
+  const out = [];
+  for (let d = 1; d <= daysInMonth(y, m); d++) {
+    const ds = `${y}-${pad2(m + 1)}-${pad2(d)}`;
+    const b = dayBrief(ds);
+    if (!b.exms.length && !b.evs.length && !b.plans.length && !b.spent && !b.income) continue;
+    out.push({ ds, day: d, ...b });
+  }
+  return out;
+}
+function openCalendarModal(dateStr) {
+  const base = viewMonth || new Date();
+  calxMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+  const sel = dateStr || todayISO();
+  const d = parseISO(sel);
+  calxSel = (d.getFullYear() === calxMonth.getFullYear() && d.getMonth() === calxMonth.getMonth()) ? sel : null;
+  openModal('calendar');
+}
+function calxDayPanel() {
+  const ds = calxSel;
+  if (!ds) return '<div class="sec-card calx-day calx-blank">날짜를 누르면 그 날 일정이 여기에 보여요 🩵</div>';
+  const b = dayBrief(ds);
+  const rows = [
+    ...b.exms.map(x => `<div class="drow"><span class="tag ${esc(x.type)}">${esc(x.type)}</span><span class="grow"><b>${esc(x.name)}</b>${x.memo ? ` <span class="muted">${esc(x.memo)}</span>` : ''}</span></div>`),
+    ...b.evs.map(e => `<div class="drow">${e.start ? `<b class="ag-time">${esc(e.start)}</b>` : ''}<span class="tag ${esc(e.category || 'personal')}">${esc(CAT_LABEL[e.category] || '일정')}</span><span class="grow">${esc(e.title)}</span></div>`),
+    ...b.plans.map(p => `<div class="drow" style="border-style:dashed"><span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span><span class="dday-pill">＋₩${won(p.amount)}</span></div>`),
+  ];
+  const money = [b.income ? `수입 ＋₩${won(b.income)}` : '', b.spent ? `지출 −₩${won(b.spent)}` : ''].filter(Boolean).join(' · ');
+  return `<div class="sec-card calx-day">
+    <div class="sec-head" style="margin:0">
+      <h3><span class="em">🔎</span>${fmtDateKo(ds)}</h3>
+      ${b.exms.length ? `<span class="dday-pill">${ddayLabel(ds)}</span>` : ''}
+      ${money ? `<span class="sec-note">${money}</span>` : ''}
+    </div>
+    ${rows.length ? `<div class="row-list">${rows.join('')}</div>` : '<div class="empty">이 날은 비어 있어요</div>'}
+    <div class="calx-day-btns">
+      <button class="btn flat" data-act="calx-open-day" data-date="${ds}">이 날 일정 추가 · 메모</button>
+    </div>
+  </div>`;
+}
+function calxDdayBar() {
+  const e = upcomingExams()[0];
+  if (!e) return '';
+  return `<div class="calx-dday">⏳ 다음 D-DAY · <b>${esc(e.name)}</b><span class="calx-dday-n">${ddayLabel(e.date)}</span><span class="muted">${fmtDateKo(e.date)}</span></div>`;
+}
+function calxAgendaHtml(y, m) {
+  const list = monthAgenda(y, m);
+  if (!list.length) return '<div class="empty">이 달에는 적어둔 일정이 없어요</div>';
+  return list.map(g => `
+    <div class="ag-day">
+      <button class="ag-date" data-act="calx-day" data-date="${g.ds}">
+        <span class="ag-dnum">${g.day}</span>
+        <span class="ag-dow">${WEEK_KO[parseISO(g.ds).getDay()]}요일</span>
+        ${g.exms.length ? `<span class="ag-dday">${ddayLabel(g.ds)}</span>` : ''}
+      </button>
+      <div class="ag-rows">
+        ${g.exms.map(x => `<div class="ag-row"><span class="tag ${esc(x.type)}">${esc(x.type)}</span><span class="grow">${esc(x.name)}${x.memo ? `<span class="muted"> · ${esc(x.memo)}</span>` : ''}</span></div>`).join('')}
+        ${g.evs.map(e => `<div class="ag-row">${e.start ? `<span class="ag-time">${esc(e.start)}</span>` : ''}<span class="dotc ${esc(e.category || 'personal')}"></span><span class="grow">${esc(e.title)}</span>${e.repeat === 'weekly' ? '<span class="muted">매주</span>' : ''}</div>`).join('')}
+        ${g.plans.map(p => `<div class="ag-row"><span class="dotc plan"></span><span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span><span class="dday-pill">＋₩${won(p.amount)}</span></div>`).join('')}
+      </div>
+      ${(g.spent || g.income) ? `<div class="ag-money">${g.income ? `<span class="cal-income">수입 ＋₩${won(g.income)}</span>` : ''}${g.spent ? `<span class="cal-spend">지출 −₩${won(g.spent)}</span>` : ''}</div>` : ''}
+    </div>`).join('');
+}
+function renderCalendarModal() {
+  const y = calxMonth.getFullYear(), m = calxMonth.getMonth();
+  const tISO = todayISO();
+  const cells = monthCells(y, m).map(d => {
+    if (!d) return '<div class="cal-cell calx-cell out"></div>';
+    const ds = isoOf(d);
+    const dow = d.getDay();
+    const cls = ['cal-cell', 'calx-cell', dow === 0 ? 'sun' : '', dow === 6 ? 'sat' : '',
+      ds === tISO ? 'today' : '', ds === calxSel ? 'sel' : ''].filter(Boolean).join(' ');
+    const chips = chipList(ds);
+    const shown = chips.slice(0, 3).map(c => `<span class="chip ${esc(c.cls)}">${esc(c.label)}</span>`).join('');
+    const more = chips.length > 3 ? `<span class="cal-more">+${chips.length - 3}</span>` : '';
+    const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds);
+    const money = `${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${pl ? `<span class="cal-plan">＋₩${won(pl)}</span>` : ''}`;
+    return `<button class="${cls}" data-act="calx-day" data-date="${ds}" aria-label="${d.getDate()}일 일정 보기">
+      <span class="dnum">${d.getDate()}</span>
+      <span class="cal-chips">${shown}${more}</span>
+      <span class="cal-money">${money}</span>
+    </button>`;
+  }).join('');
+  const agenda = monthAgenda(y, m);
+  const items = agenda.reduce((n, g) => n + g.exms.length + g.evs.length + g.plans.length, 0);
+  return `<div class="calx">
+    <div class="calx-main">
+      <div class="calx-head">
+        <div class="calx-month" id="calxMonth">${y}년 ${m + 1}월</div>
+        <div class="cal-nav">
+          <button class="mini-btn" data-act="calx-prev" aria-label="이전 달">‹</button>
+          <button class="mini-btn wide" data-act="calx-today">오늘</button>
+          <button class="mini-btn" data-act="calx-next" aria-label="다음 달">›</button>
+        </div>
+      </div>
+      ${calxDdayBar()}
+      <div class="cal-weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+      <div class="cal-grid calx-grid" id="calxGrid">${cells}</div>
+      <div class="cal-legend">
+        <span><i class="dotc study"></i>학업·시험</span>
+        <span><i class="dotc personal"></i>개인일정</span>
+        <span><i class="dotc health"></i>건강</span>
+        <span><i class="dotc trip"></i>여행</span>
+        <span><i class="dotc work"></i>알바</span>
+        <span class="legend-money"><i class="dotc income"></i>수입</span>
+        <span class="legend-money"><i class="dotc spend"></i>지출</span>
+        <span class="legend-money"><i class="dotc plan"></i>예정</span>
+      </div>
+    </div>
+    <div class="calx-side">
+      ${calxDayPanel()}
+      <section class="sec">
+        <div class="sec-head">
+          <h3><span class="em">📋</span>${m + 1}월 전체 일정</h3>
+          <span class="sec-count">${agenda.length}일 · ${items}건</span>
+        </div>
+        <div class="calx-agenda" id="calxAgenda">${calxAgendaHtml(y, m)}</div>
+      </section>
+    </div>
+  </div>`;
+}
+
 /* ───────────── modal framework ───────────── */
 const MODALS = {
+  calendar: { title: '🗓 캘린더 · 전체 일정', render: renderCalendarModal },
   study: { title: '📖 STUDY', render: renderStudyModal },
   finance: { title: '🪙 가계부', render: renderFinanceModal },
   wishlist: { title: '🎀 Wishlist', render: renderWishModal },
@@ -483,6 +616,8 @@ const MODALS = {
 
 function openModal(type, arg) {
   openModalType = type; openModalArg = arg || null;
+  const box = $('#modalBox');
+  if (box) box.classList.toggle('wide', type === 'calendar');
   $('#modalRoot').hidden = false;
   document.body.style.overflow = 'hidden';
   renderModal();
@@ -490,9 +625,11 @@ function openModal(type, arg) {
   const body = $('#modalBody'); if (body) body.scrollTop = 0;
 }
 function closeModal() {
+  const back = calxReturn; calxReturn = false;
   openModalType = null; openModalArg = null;
   $('#modalRoot').hidden = true;
   document.body.style.overflow = '';
+  if (back) openModal('calendar');
 }
 function renderModal() {
   if (!openModalType) return;
@@ -1412,6 +1549,14 @@ document.addEventListener('click', async ev => {
     case 'wx-relocate': wxRefresh(true); break;
     case 'modal-close': closeModal(); break;
     case 'open-day': openModal('day', t.dataset.date); break;
+    case 'open-calendar': openCalendarModal(t.dataset.date || null); break;
+
+    /* 큰 캘린더 모달 */
+    case 'calx-prev': calxMonth = new Date(calxMonth.getFullYear(), calxMonth.getMonth() - 1, 1); calxSel = null; renderModal(); break;
+    case 'calx-next': calxMonth = new Date(calxMonth.getFullYear(), calxMonth.getMonth() + 1, 1); calxSel = null; renderModal(); break;
+    case 'calx-today': calxMonth = new Date(); calxMonth.setDate(1); calxSel = todayISO(); renderModal(); break;
+    case 'calx-day': calxSel = t.dataset.date; renderModal(); break;
+    case 'calx-open-day': calxReturn = true; openModal('day', t.dataset.date); break;
 
     /* calendar */
     case 'cal-prev': viewMonth.setMonth(viewMonth.getMonth() - 1); renderCalendar(); break;
@@ -2319,6 +2464,7 @@ window.__GD = {
   plannedOn, subCycleLabel, normalize, financeStats, spentOn, incomeOn, entriesOn,
   EXPENSE_CATS, INCOME_CATS,
   hour12, ampmOf, clockParts, renderClock,
+  openCalendarModal, renderCalendarModal, monthAgenda,
 };
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

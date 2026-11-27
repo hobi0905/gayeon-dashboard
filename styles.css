@@ -372,7 +372,20 @@ ul{list-style:none;margin:0;padding:0;}
 
 /* ───────────── calendar ───────────── */
 .cal-card{padding-bottom:14px;}
-.cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;row-gap:6px;}
+.cal-title-btn{
+  display:inline-flex;align-items:center;gap:8px;background:none;border:0;
+  padding:2px 0;margin:0;font:inherit;color:inherit;cursor:pointer;text-align:left;border-radius:10px;
+}
+.cal-title-btn:hover .cal-title{color:#2f4a60;}
+.cal-title-btn:focus-visible{outline:2px solid #a6cfea;outline-offset:3px;}
+.cal-open-pill{
+  font-family:var(--font-body);font-size:11px;line-height:1;
+  color:#6d93b3;background:#f0f8ff;border:1px solid #dcecf9;border-radius:999px;
+  padding:4px 9px;white-space:nowrap;transition:background .15s,border-color .15s,color .15s;
+}
+.cal-title-btn:hover .cal-open-pill{background:#e7f3fe;border-color:#cfe4f6;color:#4f7b9d;}
+.cal-title{transition:color .15s;}
 .cal-title{font-family:var(--font-serif);font-weight:700;font-size:clamp(17px,1.9vw,21px);color:#3c5162;letter-spacing:-.01em;}
 .cal-nav{display:flex;gap:6px;}
 .mini-btn{
@@ -435,6 +448,74 @@ ul{list-style:none;margin:0;padding:0;}
 .dotc.income{background:#d3efdf;}
 .legend-money{margin-left:auto;}
 
+/* ───────────── 큰 상세 캘린더 모달 ───────────── */
+.calx{display:grid;grid-template-columns:minmax(0,1.22fr) minmax(0,.78fr);gap:18px;align-items:start;}
+@media (max-width:980px){ .calx{grid-template-columns:1fr;gap:16px;} }
+/* PC·아이패드 가로 — 한 달 전체가 스크롤 없이 보이게 (아젠다만 안에서 스크롤) */
+@media (min-width:981px){
+  .modal.wide{height:min(86vh,880px);}
+  .modal.wide .modal-body{overflow:hidden;flex:1 1 auto;min-height:0;}
+  .modal.wide .modal-body > .calx{flex:1 1 auto;min-height:0;align-items:stretch;}
+  .modal.wide .calx-main{display:flex;flex-direction:column;min-height:0;}
+  .modal.wide .calx-grid{flex:1 1 auto;min-height:0;grid-auto-rows:minmax(0,1fr);}
+  .modal.wide .calx-cell{min-height:0;}
+  .modal.wide .calx-side{height:100%;min-height:0;}
+  .modal.wide .calx-side > .sec{min-height:0;flex:1 1 auto;}
+  .modal.wide .calx-side > .sec > .sec-head{flex:none;}
+  .modal.wide .calx-agenda{max-height:none;min-height:0;flex:1 1 auto;overflow:auto;}
+}
+.calx-main{min-width:0;}
+.calx-side{display:flex;flex-direction:column;gap:16px;min-width:0;}
+.calx-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;row-gap:8px;}
+.calx-month{font-family:var(--font-serif);font-weight:700;font-size:clamp(19px,2.1vw,24px);color:#3c5162;letter-spacing:-.01em;}
+.calx-grid{gap:7px;}
+.calx-dday{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-size:12.5px;color:#6d8598;background:#f7fbff;border:1px solid #e9f3fb;border-radius:10px;padding:7px 11px;margin-bottom:10px;}
+.calx-dday b{color:#3c6076;font-weight:700;}
+.calx-dday-n{font-family:var(--font-num);font-weight:700;font-size:11px;color:#d1849a;background:#fdeef3;border-radius:6px;padding:2px 6px;}
+.calx-cell{min-height:clamp(84px,8.6vw,116px);padding:6px 6px 5px;border-radius:12px;}
+.calx-cell .dnum{font-size:13.5px;}
+.calx-cell.today .dnum{width:22px;height:22px;font-size:12.5px;}
+.calx-cell .cal-chips .chip{font-size:10px;padding:2px 6px;line-height:1.4;}
+.calx-cell .cal-spend,.calx-cell .cal-income,.calx-cell .cal-plan{font-size:10px;}
+.calx-cell .cal-more{font-size:9.5px;}
+.calx-cell.sel{border-color:#8fb9d9;background:linear-gradient(180deg,#f2f9ff,#e9f4fe);box-shadow:0 0 0 2px #dceeff inset;}
+.calx-day .sec-head h3{font-size:15px;}
+.calx-day .empty{font-size:13px;}
+.calx-day-btns{display:flex;justify-content:flex-end;}
+.calx-blank{font-size:13px;color:#93a8b8;padding:16px 14px;text-align:center;}
+.calx-agenda{display:flex;flex-direction:column;gap:9px;max-height:min(56vh,560px);overflow:auto;padding-right:4px;}
+@media (max-width:980px){ .calx-agenda{max-height:none;overflow:visible;padding-right:0;} }
+.ag-day{border:1px solid #eaf3fa;border-radius:12px;background:#fdfeff;padding:9px 11px;}
+.ag-date{display:flex;align-items:center;gap:7px;background:none;border:0;padding:0;margin:0 0 6px;font:inherit;cursor:pointer;border-radius:8px;}
+.ag-date:hover .ag-dnum{color:#3c7ba8;}
+.ag-date:focus-visible{outline:2px solid #a6cfea;outline-offset:2px;}
+.ag-dnum{font-family:var(--font-num);font-weight:700;font-size:16px;color:#4a6478;line-height:1;}
+.ag-dow{font-size:11.5px;color:#93a8b8;}
+.ag-dday{font-family:var(--font-num);font-weight:700;font-size:10.5px;color:#d1849a;background:#fdeef3;border-radius:6px;padding:2px 6px;}
+.ag-rows{display:flex;flex-direction:column;gap:4px;}
+.ag-row{display:flex;align-items:center;gap:7px;font-size:13.5px;color:#4a606f;line-height:1.45;}
+.ag-row .grow{flex:1 1 auto;min-width:0;}
+.ag-time{font-family:var(--font-num);font-weight:700;font-size:12px;color:#6f9dc2;min-width:36px;}
+.ag-money{display:flex;gap:10px;margin-top:6px;font-size:11px;}
+/* 크리스마스 테마 */
+body[data-theme="xmas"] .cal-open-pill{background:#f7eedf;border-color:#ecdfcb;color:#8a7458;}
+body[data-theme="xmas"] .cal-title-btn:hover .cal-title{color:#1f4a3a;}
+body[data-theme="xmas"] .cal-title-btn:hover .cal-open-pill{background:#f2e6d2;border-color:#e2d2b9;color:#6f5a42;}
+body[data-theme="xmas"] .calx-month{color:#2f5040;}
+body[data-theme="xmas"] .calx-dday{background:#fffdf6;border-color:#f0e4d2;color:#8a7458;}
+body[data-theme="xmas"] .calx-dday b{color:#2f5040;}
+body[data-theme="xmas"] .calx-dday-n{background:#f7e8c9;color:#8a5c2a;}
+body[data-theme="xmas"] .calx-cell.sel{border-color:#c9a45c;background:linear-gradient(180deg,#fdf6e8,#f8ecd6);box-shadow:0 0 0 2px #f7eeda inset;}
+body[data-theme="xmas"] .calx-blank{color:#a2917d;}
+body[data-theme="xmas"] .ag-day{background:#fffdf8;border-color:#f2e7d6;}
+body[data-theme="xmas"] .ag-dnum{color:#4a3f34;}
+body[data-theme="xmas"] .ag-date:hover .ag-dnum{color:#1f4a3a;}
+body[data-theme="xmas"] .ag-dow{color:#a2917d;}
+body[data-theme="xmas"] .ag-dday{background:#f7e8c9;color:#8a5c2a;}
+body[data-theme="xmas"] .ag-row{color:#4f463b;}
+body[data-theme="xmas"] .ag-time{color:#a97f3e;}
+body[data-theme="xmas"] .calx-day .sec-head h3{color:#2f5040;}
+
 .site-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:26px;padding-top:14px;border-top:1px solid var(--line-soft);font-size:11px;color:#b1c0cc;flex-wrap:wrap;}
 .sync-badge{
   display:inline-flex;align-items:center;gap:6px;
@@ -469,6 +550,7 @@ ul{list-style:none;margin:0;padding:0;}
 .modal-title{font-family:var(--font-serif);font-weight:700;font-size:20px;color:#3a5062;letter-spacing:-.01em;}
 .modal-close{border:none;background:#fff;border-radius:10px;width:32px;height:32px;color:#9fb2c1;box-shadow:var(--shadow-s);font-size:14px;}
 .modal-close:hover{background:#f2f9ff;color:#7b93a6;}
+.modal.wide{width:min(1120px,100%);}
 .modal-body{padding:18px 24px 26px;overflow:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:20px;}
 
 /* sections inside modal */
@@ -841,6 +923,12 @@ a{color:#6f9dc2;}
   .stat-row.money .stat:last-child{grid-column:auto;}
   .money-form .money-type,.money-form .money-cat{width:100%;}
   .cal-cell{min-height:62px;padding:4px 3px;}
+  .calx-cell{min-height:68px;padding:4px 4px 3px;}
+  .calx-cell .dnum{font-size:12px;}
+  /* 좁은 화면에서는 일정 칩을 점으로만 (이름은 아래 아젠다에서) */
+  .calx-cell .cal-chips{flex-direction:row;flex-wrap:wrap;gap:3px;margin-top:2px;}
+  .calx-cell .cal-chips .chip{width:6px;height:6px;min-height:0;flex:0 0 auto;border-radius:50%;padding:0;font-size:0;line-height:0;border-left:none;filter:saturate(1.5) brightness(.94);}
+  .calx-agenda{gap:7px;}
   .chip{font-size:8.5px;}
   .legend-money{margin-left:0;}
   .site-foot{justify-content:center;}
@@ -851,8 +939,8 @@ a{color:#6f9dc2;}
   .avatar{width:38px;height:38px;}
   .ph-title{gap:9px;}
   .fcal-day{min-height:44px;}
-  .cal-chips{gap:3px;margin-bottom:2px;}
-  .chip{height:6px;font-size:0;line-height:0;padding:0;border-radius:3px;border-left:none;}
+  .cal-chips{gap:3px;margin-bottom:2px;align-self:stretch;width:100%;}
+  .chip{height:6px;font-size:0;line-height:0;padding:0;border-radius:3px;border-left:none;filter:saturate(1.45) brightness(.96);}
   .cal-more{font-size:9px;}
   .cal-spend,.cal-plan{font-size:10px;}
   .drow{gap:8px;}
@@ -860,7 +948,10 @@ a{color:#6f9dc2;}
   .add-form > .btn{width:100%;}
 }
 
-@media (hover:none){ .cover-edit{opacity:1;} }
+@media (max-width:430px){
+  .cal-open-pill{padding:3px 8px;font-size:10px;}
+  .calx-cell{min-height:60px;}
+}
 
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;transition-duration:.001s !important;}
