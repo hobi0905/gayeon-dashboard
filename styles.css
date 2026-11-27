@@ -495,6 +495,9 @@ ul{list-style:none;margin:0;padding:0;}
 .check-row.done .txt{color:#a9b7c3;text-decoration:line-through;}
 .icon-x{border:none;background:none;color:#d5e1ea;font-size:12px;padding:2px 5px;border-radius:6px;}
 .icon-x:hover{color:#e39ba8;background:#fdf4f6;}
+/* 수정(✏️)은 삭제(✕)보다 조금 더 잘 보이게 — 눌러야 할 곳이라 */
+.icon-x[data-act$="-edit"]{color:#b3c9db;}
+.icon-x[data-act$="-edit"]:hover{color:#5f93bb;background:#f2f9ff;}
 
 .progress{height:7px;border-radius:999px;background:#eef6fc;overflow:hidden;}
 .progress > i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#b9d9f2,#8fb9d9);transition:width .3s;}
