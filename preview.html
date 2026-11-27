@@ -22,6 +22,8 @@
   const f = document.getElementById('f');
   f.style.width = w + 'px'; f.style.height = h + 'px';
   f.src = 'index.html?bust=' + Date.now();
+  const y = +(p.get('y') || 0);
+  if (y) f.addEventListener('load', () => { try { f.contentWindow.scrollTo(0, y); } catch (e) {} });
   document.getElementById('wrap').style.transform = 'scale(' + s + ')';
   document.getElementById('label').textContent = w + ' × ' + h;
 </script>
