@@ -196,6 +196,7 @@ let finSel = todayISO();
 let calxMonth = new Date(); calxMonth.setDate(1);
 let calxSel = null;          /* 큰 캘린더에서 고른 날짜 */
 let calxReturn = false;      /* 날짜 상세 모달을 닫으면 큰 캘린더로 돌아가기 */
+let finDetailReturn = false; /* 가계부 상세를 닫으면 가계부 모달로 돌아가기 */
 let editingExamId = null;
 let openModalType = null;
 let openModalArg = null;
@@ -266,6 +267,7 @@ function renderAll() {
   renderHero();
   renderDday();
   renderTodo();
+  renderHomeGoals();
   renderCalendar();
   renderSyncBadge();
   renderModal();
@@ -353,6 +355,41 @@ function renderTodo() {
       <button class="edit" data-act="todo-edit" data-id="${t.id}" aria-label="수정" title="수정">✏️</button>
       <button class="del" data-act="todo-del" data-id="${t.id}" aria-label="삭제">✕</button>
     </li>`).join('');
+}
+
+/* ───────────── home · 이달의 목표 (STUDY month 목표와 같은 데이터) ───────────── */
+/* 달성한 목표는 목록 제일 아래로 — 홈 카드·STUDY 모달이 같은 정렬을 쓴다 */
+const sortGoals = items => [...(items || [])].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
+
+function goalRowsHtml(scope, cls) {
+  return sortGoals(state.study[scope] || []).map(i => `
+    <div class="check-row ${i.done ? 'done' : ''}${cls ? ' ' + cls : ''}" data-id="${i.id}">
+      <button class="chk" data-act="goal-toggle" data-scope="${scope}" data-id="${i.id}" aria-label="완료">${i.done ? '✓' : ''}</button>
+      <span class="txt">${esc(i.text)}</span>
+      <button class="icon-x" data-act="goal-edit" data-scope="${scope}" data-id="${i.id}" title="수정">✏️</button>
+      <button class="icon-x" data-act="goal-del" data-scope="${scope}" data-id="${i.id}" title="삭제">✕</button>
+    </div>`).join('');
+}
+
+function renderHomeGoals() {
+  const box = $('#homeGoals');
+  if (!box) return;
+  const items = state.study.month || [];
+  const done = items.filter(i => i.done).length;
+  const pct = items.length ? Math.round(done / items.length * 100) : 0;
+  box.innerHTML = `
+    <div class="hg-top">
+      <span class="hg-count">${done}/${items.length} 완료</span>
+      <span class="hg-pct">${pct}%</span>
+    </div>
+    <div class="progress hg-progress"><i style="width:${pct}%"></i></div>
+    ${items.length
+      ? `<div class="check-list hg-list">${goalRowsHtml('month', 'hg-row')}</div>`
+      : '<div class="hg-empty">이번 달에 꼭 해내고 싶은 걸 적어보세요 🩵</div>'}
+    <form class="add-form inline hg-form" data-form="goal" data-scope="month">
+      <input class="in grow" name="text" maxlength="80" placeholder="이번 달 목표 추가" autocomplete="off">
+      <button class="btn primary" type="submit">추가</button>
+    </form>`;
 }
 
 /* ───────────── calendar ───────────── */
@@ -607,6 +644,8 @@ const MODALS = {
   calendar: { title: '🗓 캘린더 · 전체 일정', render: renderCalendarModal },
   study: { title: '📖 STUDY', render: renderStudyModal },
   finance: { title: '🪙 가계부', render: renderFinanceModal },
+  invest: { title: '📈 투자', render: renderInvestModal },
+  'fin-detail': { title: '재무 상세', render: renderFinanceDetailModal },
   wishlist: { title: '🎀 Wishlist', render: renderWishModal },
   memo: { title: '🕯️ 메모', render: renderMemoModal },
   settings: { title: '🎨 꾸미기 설정', render: renderSettingsModal },
@@ -626,16 +665,22 @@ function openModal(type, arg) {
 }
 function closeModal() {
   const back = calxReturn; calxReturn = false;
+  const backFin = finDetailReturn; finDetailReturn = false;
   openModalType = null; openModalArg = null;
   $('#modalRoot').hidden = true;
   document.body.style.overflow = '';
   if (back) openModal('calendar');
+  else if (backFin) openModal('finance');
 }
 function renderModal() {
   if (!openModalType) return;
   const cfg = MODALS[openModalType];
   if (!cfg) return;
   if (openModalType === 'day') $('#modalTitle').textContent = `🗓 ${fmtDateKo(openModalArg)}`;
+  else if (openModalType === 'fin-detail') {
+    const meta = FIN_DETAIL[openModalArg] || FIN_DETAIL.spend;
+    $('#modalTitle').textContent = `${meta.em} ${meta.label} 상세`;
+  }
   else $('#modalTitle').textContent = cfg.title;
   const body = $('#modalBody');
   const scroll = body.scrollTop;
@@ -655,7 +700,7 @@ const GOAL_META = {
 
 function goalSection(scope) {
   const meta = GOAL_META[scope];
-  const items = state.study[scope] || [];
+  const items = sortGoals(state.study[scope] || []);
   const done = items.filter(i => i.done).length;
   const pct = items.length ? Math.round(done / items.length * 100) : 0;
   return `<section class="sec">
@@ -664,13 +709,7 @@ function goalSection(scope) {
       <span class="sec-count">${done}/${items.length}</span>
     </div>
     <div class="progress"><i style="width:${pct}%"></i></div>
-    ${items.length ? `<div class="check-list">${items.map(i => `
-      <div class="check-row ${i.done ? 'done' : ''}">
-        <button class="chk" data-act="goal-toggle" data-scope="${scope}" data-id="${i.id}">${i.done ? '✓' : ''}</button>
-        <span class="txt">${esc(i.text)}</span>
-        <button class="icon-x" data-act="goal-edit" data-scope="${scope}" data-id="${i.id}" title="수정">✏️</button>
-        <button class="icon-x" data-act="goal-del" data-scope="${scope}" data-id="${i.id}" title="삭제">✕</button>
-      </div>`).join('')}</div>` : `<div class="empty">아직 비어 있어요 · 작게 하나 적어볼까요?</div>`}
+    ${items.length ? `<div class="check-list">${goalRowsHtml(scope)}</div>` : `<div class="empty">아직 비어 있어요 · 작게 하나 적어볼까요?</div>`}
     <form class="add-form inline" data-form="goal" data-scope="${scope}">
       <input class="in grow" name="text" maxlength="80" placeholder="${meta.ph}" autocomplete="off">
       <button class="btn primary" type="submit">추가</button>
@@ -779,16 +818,20 @@ function finDayPanel() {
 
 function renderFinanceModal() {
   const st = financeStats();
-  const goals = state.finance.goals;
-  const invest = state.finance.invest;
   const subs = state.finance.subs;
   const monthlySubs = subs.filter(s => s.active && s.cycle !== 'yearly').reduce((a, s) => a + (Number(s.amount) || 0), 0);
   const yearlySubs = subs.filter(s => s.active && s.cycle === 'yearly').reduce((a, s) => a + (Number(s.amount) || 0), 0);
   return `
     <div class="stat-row money">
-      <div class="stat income"><div class="k">이번 달 수입</div><div class="v">＋₩${won(st.income)}</div></div>
-      <div class="stat spend"><div class="k">이번 달 지출</div><div class="v">−₩${won(st.spent)}</div></div>
-      <div class="stat plan"><div class="k">예정 지출</div><div class="v">₩${won(st.planned)}</div></div>
+      <button class="stat income stat-btn" data-act="fin-detail" data-kind="income" title="이번 달 수입 상세 · 카테고리 비율">
+        <div class="k">이번 달 수입<span class="stat-go">상세 ›</span></div><div class="v">＋₩${won(st.income)}</div>
+      </button>
+      <button class="stat spend stat-btn" data-act="fin-detail" data-kind="spend" title="이번 달 지출 상세 · 카테고리 비율">
+        <div class="k">이번 달 지출<span class="stat-go">상세 ›</span></div><div class="v">−₩${won(st.spent)}</div>
+      </button>
+      <button class="stat plan stat-btn" data-act="fin-detail" data-kind="plan" title="예정 지출 상세 · 카테고리 비율">
+        <div class="k">예정 지출<span class="stat-go">상세 ›</span></div><div class="v">₩${won(st.planned)}</div>
+      </button>
       <div class="stat balance ${st.balance < 0 ? 'neg' : ''}"><div class="k">수입 - 지출</div><div class="v">${st.balance < 0 ? '−' : ''}₩${won(Math.abs(st.balance))}</div></div>
     </div>
     <div class="fin-subs-line">🔁 활성 구독 ₩${won(monthlySubs)}<small> /월</small>${yearlySubs ? ` · 연 ₩${won(yearlySubs)}` : ''}</div>
@@ -803,7 +846,7 @@ function renderFinanceModal() {
         </div>
       </div>
       <div class="sec-card">
-        <div class="cal-title" style="font-size:13px;color:#8ba3b5;font-family:var(--font-num);margin-bottom:2px">
+        <div class="cal-title" id="finMonthLabel" style="font-size:13px;color:#8ba3b5;font-family:var(--font-num);margin-bottom:2px">
           ${finMonth.getFullYear()}년 ${finMonth.getMonth() + 1}월 · ${themeOf(state) === 'xmas' ? '빨간=지출, 초록=수입, 금색=예정' : '파란=지출, 초록=수입, 주황=예정'}
         </div>
         ${financeCalendar()}
@@ -812,7 +855,43 @@ function renderFinanceModal() {
     </section>
 
     <section class="sec">
-      <div class="sec-head"><h3><span class="em">🏦</span>재무목표</h3><span class="sec-count">${goals.length}</span></div>
+      <div class="sec-head"><h3><span class="em">🔁</span>정기구독 관리</h3><span class="sec-count">${subs.filter(s => s.active).length}개 활성</span></div>
+      ${subs.length ? `<div class="row-list">${subs.map(s => `
+        <div class="drow">
+          <button class="switch ${s.active ? 'on' : ''}" data-act="sub-toggle" data-id="${s.id}" aria-label="활성"></button>
+          <span class="grow"><b>${esc(s.name)}</b> <span class="muted">${esc(subCycleLabel(s))}</span></span>
+          <span class="dday-pill">₩${won(s.amount)}${s.cycle === 'yearly' ? '<small> /년</small>' : ''}</span>
+          <button class="icon-x" data-act="sub-edit" data-id="${s.id}">✏️</button>
+          <button class="icon-x" data-act="sub-del" data-id="${s.id}">✕</button>
+        </div>`).join('')}</div>` : '<div class="empty">활성 구독은 결제일마다 캘린더에 예정 금액으로 자동 표시돼요</div>'}
+      <form class="add-form" data-form="sub">
+        ${F_CELL('서비스명', '<input class="in" name="name" placeholder="예: 유튜브 프리미엄" maxlength="40" required>', 'w2')}
+        ${F_CELL('금액', '<input class="in num" name="amount" inputmode="numeric" placeholder="0" required>')}
+        ${F_CELL('주기', '<select class="in cycle-select" name="cycle"><option value="monthly">매달</option><option value="yearly">매년</option></select>')}
+        <label class="fld month"><span>월</span><select class="in sub-month" name="month">${monthOptions(1)}</select></label>
+        <label class="fld day"><span>결제일</span><select class="in sub-day" name="day">${dayOptions(1)}</select></label>
+        <button class="btn primary" type="submit">추가</button>
+      </form>
+      <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 = 매월 그 날, 매년 = 그 달·그 날에만 예정 지출로 표시돼요. 31일처럼 없는 날은 그 달 말일로 맞춰줘요.</div>
+    </section>`;
+}
+
+/* ───────────── 📈 투자 modal (재무목표 · 주식투자) ───────────── */
+function renderInvestModal() {
+  const goals = state.finance.goals;
+  const invest = state.finance.invest;
+  const savedSum = goals.reduce((s, g) => s + (Number(g.saved) || 0), 0);
+  const targetSum = goals.reduce((s, g) => s + (Number(g.target) || 0), 0);
+  const goalPct = targetSum > 0 ? Math.min(100, Math.round(savedSum / targetSum * 100)) : 0;
+  return `
+    <div class="stat-row">
+      <div class="stat"><div class="k">재무목표</div><div class="v">${goals.length}<small>개</small></div></div>
+      <div class="stat plan"><div class="k">모은 금액</div><div class="v">₩${won(savedSum)}</div></div>
+      <div class="stat income"><div class="k">목표 달성률</div><div class="v">${goalPct}<small>%</small></div></div>
+    </div>
+
+    <section class="sec">
+      <div class="sec-head"><h3><span class="em">🏦</span>재무목표</h3><span class="sec-count">${goals.length}</span><span class="sec-note">목표 ₩${won(targetSum)}</span></div>
       ${goals.length ? goals.map(g => {
         const target = Number(g.target) || 0, saved = Number(g.saved) || 0;
         const pct = target > 0 ? Math.min(100, Math.round(saved / target * 100)) : 0;
@@ -843,7 +922,7 @@ function renderFinanceModal() {
     </section>
 
     <section class="sec">
-      <div class="sec-head"><h3><span class="em">📈</span>투자</h3><span class="sec-count">${invest.length}</span></div>
+      <div class="sec-head"><h3><span class="em">📈</span>주식투자</h3><span class="sec-count">${invest.length}</span><span class="sec-note">종목·주제 메모</span></div>
       ${invest.length ? `<div class="row-list">${invest.map(v => `
         <div class="drow">
           <span class="tag ${v.stance === '매수검토' ? 'soon' : ''}">${esc(v.stance)}</span>
@@ -857,27 +936,116 @@ function renderFinanceModal() {
         ${F_CELL(`메모 ${F_OPT}`, '<input class="in" name="memo" placeholder="왜 관심을 갖게 됐는지" maxlength="80">', 'full')}
         <button class="btn primary" type="submit">추가</button>
       </form>
-    </section>
+    </section>`;
+}
 
+/* ───────────── 가계부 요약 카드 → 이번 달 상세 + 원형 그래프 ───────────── */
+const FIN_DETAIL = {
+  income: { label: '이번 달 수입', em: '💚', pill: 'income', sign: '＋' },
+  spend: { label: '이번 달 지출', em: '💸', pill: 'out', sign: '−' },
+  plan: { label: '예정 지출', em: '🗓', pill: 'plan', sign: '＋' },
+};
+
+/* 그 달의 상세 내역 — 수입·지출은 내역에서, 예정 지출은 정기구독·구매예정에서 모은다 */
+function financeMonthItems(kind) {
+  const y = finMonth.getFullYear(), m = finMonth.getMonth();
+  const prefix = `${y}-${pad2(m + 1)}`;
+  if (kind === 'plan') {
+    const out = [];
+    for (let d = 1; d <= daysInMonth(y, m); d++) {
+      const ds = `${prefix}-${pad2(d)}`;
+      plannedOn(ds).forEach(p => out.push({ date: ds, title: p.name, cat: p.kind, amount: Number(p.amount) || 0 }));
+    }
+    return out.sort((a, b) => a.date.localeCompare(b.date));
+  }
+  const wantIncome = kind === 'income';
+  return state.finance.expenses
+    .filter(e => e && (e.date || '').startsWith(prefix) && isIncome(e) === wantIncome)
+    .map(e => ({ id: e.id, date: e.date, title: e.title, cat: e.cat || '기타', amount: amtOf(e) }))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.id).localeCompare(String(b.id)));
+}
+
+/* 카테고리별 합계 → 비중(%) — 반올림한 퍼센트의 합이 정확히 100이 되도록 최대 나머지 방식 */
+function chartParts(items) {
+  const byCat = new Map();
+  (items || []).forEach(i => {
+    const amt = Number(i.amount) || 0;
+    if (!(amt > 0)) return;
+    byCat.set(i.cat, (byCat.get(i.cat) || 0) + amt);
+  });
+  const rows = [...byCat.entries()].map(([cat, amount]) => ({ cat, amount })).sort((a, b) => b.amount - a.amount);
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  if (!total) return { total: 0, rows: rows.map(r => Object.assign({}, r, { pct: 0 })) };
+  const exact = rows.map(r => r.amount / total * 100);
+  const pcts = exact.map(v => Math.floor(v));
+  let rest = 100 - pcts.reduce((s, n) => s + n, 0);
+  const order = exact.map((v, i) => ({ i, f: v - Math.floor(v) })).sort((a, b) => b.f - a.f || a.i - b.i);
+  for (let k = 0; k < rest && order.length; k++) pcts[order[k % order.length].i] += 1;
+  return { total, rows: rows.map((r, i) => Object.assign({}, r, { pct: pcts[i] })) };
+}
+
+/* 도넛 차트 — 색은 테마별 --chart-1~8 팔레트 */
+function donutSvg(rows, total) {
+  const R = 56, SW = 18, C = 2 * Math.PI * R;
+  let acc = 0;
+  const segs = rows.map((r, i) => {
+    const len = r.pct / 100 * C;
+    const gap = rows.length > 1 && len > 6 ? 2.5 : 0;
+    const dash = Math.max(0.5, len - gap);
+    const seg = `<circle class="dseg" cx="80" cy="80" r="${R}" fill="none" stroke="var(--chart-${i % 8 + 1})" stroke-width="${SW}"`
+      + ` stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 80 80)"></circle>`;
+    acc += len;
+    return seg;
+  }).join('');
+  return `<svg class="donut" viewBox="0 0 160 160" role="img" aria-label="카테고리별 비율 그래프">
+    <circle class="dring" cx="80" cy="80" r="${R}" fill="none" stroke-width="${SW}"></circle>
+    ${segs}
+    <text class="donut-cap" x="80" y="70" text-anchor="middle">합계</text>
+    <text class="donut-total" x="80" y="90" text-anchor="middle">₩${won(total)}</text>
+  </svg>`;
+}
+
+function chartLegendHtml(rows) {
+  return `<ul class="chart-legend">${rows.map((r, i) => `
+    <li>
+      <i class="sw" style="background:var(--chart-${i % 8 + 1})"></i>
+      <span class="lb">${esc(r.cat)}</span>
+      <span class="pc">${r.pct}%</span>
+      <span class="am">₩${won(r.amount)}</span>
+    </li>`).join('')}</ul>
+  <div class="chart-line">${rows.map(r => `${esc(r.cat)} ${r.pct}%`).join(' · ')}</div>`;
+}
+
+function renderFinanceDetailModal(kind) {
+  const key = FIN_DETAIL[kind] ? kind : 'spend';
+  const meta = FIN_DETAIL[key];
+  const y = finMonth.getFullYear(), m = finMonth.getMonth() + 1;
+  const items = financeMonthItems(key);
+  const { total, rows } = chartParts(items);
+  const chart = rows.length
+    ? `<div class="chart-wrap">${donutSvg(rows, total)}<div class="chart-side">${chartLegendHtml(rows)}</div></div>`
+    : `<div class="chart-empty">이번 달 ${key === 'plan' ? '예정 지출' : key === 'income' ? '수입' : '지출'} 내역이 없어서 보여줄 비율이 없어요 🩵</div>`;
+  const rowsHtml = items.length
+    ? `<div class="fd-list">${items.map(i => `
+      <div class="fd-row">
+        <span class="fd-date">${fmtDateShort(i.date)}</span>
+        <span class="fd-title">${esc(i.title)}</span>
+        <span class="fd-cat">${esc(i.cat || '기타')}</span>
+        <span class="fd-amt ${meta.pill}">${meta.sign}₩${won(i.amount)}</span>
+      </div>`).join('')}</div>`
+    : `<div class="empty">이번 달 ${meta.label} 내역이 아직 없어요</div>`;
+  return `
     <section class="sec">
-      <div class="sec-head"><h3><span class="em">🔁</span>정기구독 관리</h3><span class="sec-count">${subs.filter(s => s.active).length}개 활성</span></div>
-      ${subs.length ? `<div class="row-list">${subs.map(s => `
-        <div class="drow">
-          <button class="switch ${s.active ? 'on' : ''}" data-act="sub-toggle" data-id="${s.id}" aria-label="활성"></button>
-          <span class="grow"><b>${esc(s.name)}</b> <span class="muted">${esc(subCycleLabel(s))}</span></span>
-          <span class="dday-pill">₩${won(s.amount)}${s.cycle === 'yearly' ? '<small> /년</small>' : ''}</span>
-          <button class="icon-x" data-act="sub-edit" data-id="${s.id}">✏️</button>
-          <button class="icon-x" data-act="sub-del" data-id="${s.id}">✕</button>
-        </div>`).join('')}</div>` : '<div class="empty">활성 구독은 결제일마다 캘린더에 예정 금액으로 자동 표시돼요</div>'}
-      <form class="add-form" data-form="sub">
-        ${F_CELL('서비스명', '<input class="in" name="name" placeholder="예: 유튜브 프리미엄" maxlength="40" required>', 'w2')}
-        ${F_CELL('금액', '<input class="in num" name="amount" inputmode="numeric" placeholder="0" required>')}
-        ${F_CELL('주기', '<select class="in cycle-select" name="cycle"><option value="monthly">매달</option><option value="yearly">매년</option></select>')}
-        <label class="fld month"><span>월</span><select class="in sub-month" name="month">${monthOptions(1)}</select></label>
-        <label class="fld day"><span>결제일</span><select class="in sub-day" name="day">${dayOptions(1)}</select></label>
-        <button class="btn primary" type="submit">추가</button>
-      </form>
-      <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 = 매월 그 날, 매년 = 그 달·그 날에만 예정 지출로 표시돼요. 31일처럼 없는 날은 그 달 말일로 맞춰줘요.</div>
+      <div class="sec-head">
+        <h3><span class="em">${meta.em}</span>${y}년 ${m}월 ${meta.label}</h3>
+        <span class="sec-count">${items.length}건</span>
+        <span class="sec-note">합계 ₩${won(total)}</span>
+      </div>
+      <div class="sec-card chart-card">${chart}</div>
+    </section>
+    <section class="sec">
+      <div class="sec-head"><h3><span class="em">🧾</span>상세 내역</h3><span class="sec-count">${items.length}</span><span class="sec-note">수정·삭제는 가계부 캘린더에서</span></div>
+      ${rowsHtml}
     </section>`;
 }
 
@@ -1542,6 +1710,7 @@ document.addEventListener('click', async ev => {
     /* modal open/close */
     case 'open-study': openModal('study'); break;
     case 'open-finance': openModal('finance'); break;
+    case 'open-invest': openModal('invest'); break;
     case 'open-wishlist': openModal('wishlist'); break;
     case 'open-memo': openModal('memo'); break;
     case 'open-settings': openModal('settings'); break;
@@ -1566,6 +1735,7 @@ document.addEventListener('click', async ev => {
     case 'fin-next': finMonth.setMonth(finMonth.getMonth() + 1); renderFinanceModalAndKeep(); break;
     case 'fin-today': finMonth = new Date(); finMonth.setDate(1); renderFinanceModalAndKeep(); break;
     case 'fin-day': finSel = t.dataset.date; renderFinanceModalAndKeep(); break;
+    case 'fin-detail': finDetailReturn = true; openModal('fin-detail', t.dataset.kind); break;
 
     /* todo */
     case 'todo-toggle': {
@@ -1971,7 +2141,7 @@ document.addEventListener('click', async ev => {
 });
 
 function renderFinanceModalAndKeep() {
-  if (openModalType === 'finance') renderModal();
+  if (openModalType === 'finance' || openModalType === 'invest') renderModal();
 }
 
 /* ───────────── title / quote editing ───────────── */
@@ -2462,6 +2632,7 @@ window.__GD = {
   get state() { return state; },
   seal, unseal, rowIdFor, cloudPush, cloudPull, applyRemote, startSync,
   plannedOn, subCycleLabel, normalize, financeStats, spentOn, incomeOn, entriesOn,
+  financeMonthItems, chartParts, donutSvg,
   EXPENSE_CATS, INCOME_CATS,
   hour12, ampmOf, clockParts, renderClock,
   openCalendarModal, renderCalendarModal, monthAgenda,

@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=26">
+<link rel="stylesheet" href="styles.css?v=27">
 </head>
 <body data-theme="xmas">
 <div class="app" id="app">
@@ -56,6 +56,7 @@
           <nav class="nav-list">
             <button class="nav-btn" data-act="open-study"><span class="nav-ico">📖</span><span class="nav-label">STUDY</span><span class="nav-arrow">›</span></button>
             <button class="nav-btn" data-act="open-finance"><span class="nav-ico">🪙</span><span class="nav-label">가계부</span><span class="nav-arrow">›</span></button>
+            <button class="nav-btn" data-act="open-invest"><span class="nav-ico">📈</span><span class="nav-label">투자</span><span class="nav-arrow">›</span></button>
             <button class="nav-btn" data-act="open-wishlist"><span class="nav-ico">🎀</span><span class="nav-label">Wishlist</span><span class="nav-arrow">›</span></button>
             <button class="nav-btn" data-act="open-memo"><span class="nav-ico">🕯️</span><span class="nav-label">메모</span><span class="nav-arrow">›</span></button>
           </nav>
@@ -75,6 +76,11 @@
             </form>
             <ul class="todo-list" id="todoList"></ul>
           </div>
+        </section>
+
+        <section class="block" id="homeGoalsBlock">
+          <h2 class="block-title">🎯 이달의 목표</h2>
+          <div class="home-goals" id="homeGoals"></div>
         </section>
 
         <button class="deco-btn" data-act="open-settings">🎨 꾸미기 설정</button>
@@ -164,6 +170,6 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="app.js?v=20" defer></script>
+<script src="app.js?v=21" defer></script>
 </body>
 </html>

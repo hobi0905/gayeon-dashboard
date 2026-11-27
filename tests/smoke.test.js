@@ -51,7 +51,7 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(!!$('#pageTitle'), '페이지 타이틀 렌더');
   ok($('#pageTitle').textContent.trim() === 'My Dashboard', '기본 제목 표시', $('#pageTitle').textContent);
   ok($('#quoteText').textContent.includes('호비랑 서리'), '기본 인용구 표시');
-  ok($$('.nav-btn').length === 4, '네비게이션 버튼 4개', $$('.nav-btn').length);
+  ok($$('.nav-btn').length === 5, '네비게이션 버튼 5개', $$('.nav-btn').length);
   ok($$('.block-title').some(h => h.textContent.trim() === 'TO-DO List'), 'TODO 카드 제목 TO-DO List');
   ok(!/SIMPLE TODO/.test($('#app').textContent), 'SIMPLE TODO 문구 제거');
   ok(($('#avatarImg').getAttribute('src') || '').includes('profile-avatar'), '프로필 아바타 표시', $('#avatarImg').getAttribute('src'));
@@ -236,7 +236,8 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   console.log('▸ 가계부');
   click($('[data-act="open-finance"]'));
   ok($('#modalBody').textContent.includes('가계부 캘린더'), '가계부 캘린더 섹션');
-  ok($('#modalBody').textContent.includes('재무목표') && $('#modalBody').textContent.includes('투자') && $('#modalBody').textContent.includes('정기구독'), '재무목표·투자·정기구독 섹션');
+  ok($('#modalBody').textContent.includes('정기구독'), '가계부에 정기구독 섹션');
+  ok(!$('#modalBody').textContent.includes('재무목표') && !$('#modalBody').textContent.includes('주식투자'), '가계부에서 재무목표·투자 섹션 제거');
 
   // 정기구독 추가 (매월 28일)
   const subForm = $('#modalBody [data-form="sub"]');
@@ -555,7 +556,9 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(!doc.querySelector('.prompt'), '취소하면 수정 창 닫힘');
   ok(w.__GD.state.finance.expenses.find(e => e.title === '테스트 점심').amount === 8500, '취소하면 원래 값 그대로');
 
-  console.log('▸ 수정 기능 — 투자 메모');
+  console.log('▸ 수정 기능 — 투자 메모 (📈 투자 탭)');
+  click($('[data-act="modal-close"]'));
+  click($('[data-act="open-invest"]'));
   const investForm = $('#modalBody [data-form="invest"]');
   fld(investForm, 'name').value = '테스트 ETF';
   fld(investForm, 'stance').value = '관망';
@@ -703,7 +706,173 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.habit-grid \.hn \.hx,\.habit-grid \.hn \.he\{[^}]*opacity:0/.test(css), '습관 수정·삭제 버튼 스타일');
   ok(/\.note-card \.ntag\{/.test(css), '메모 태그 스타일');
   const html2 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  ok(/styles\.css\?v=26/.test(html2) && /app\.js\?v=20/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
+  ok(/styles\.css\?v=27/.test(html2) && /app\.js\?v=21/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
+
+  console.log('▸ 홈 이달의 목표 연동');
+  click($('[data-act="modal-close"]'));
+  ok(!!$('#homeGoals'), '홈 왼쪽 칼럼에 이달의 목표 카드');
+  ok($$('.sidebar .block-title').some(h => h.textContent.includes('🎯') && h.textContent.includes('이달의 목표')), '카드 제목 🎯 이달의 목표');
+  const decoBtn = $('.sidebar .deco-btn');
+  ok(!!decoBtn && !!decoBtn.previousElementSibling && decoBtn.previousElementSibling.contains($('#homeGoals')), '꾸미기 설정 버튼 바로 위에 배치');
+  ok(!!$('#homeGoals [data-form="goal"][data-scope="month"]'), '홈 카드에서 바로 추가하는 폼(이달의 목표)');
+  ok(!!$('#homeGoals .progress') && !!$('#homeGoals .hg-top'), '홈 카드 진행률·완료 개수');
+
+  const hgForm = $('#homeGoals [data-form="goal"]');
+  fld(hgForm, 'text').value = '홈에서 넣은 목표';
+  submit(hgForm);
+  await tick();
+  const monthGoals = () => w.__GD.state.study.month;
+  ok(monthGoals().some(g => g.text === '홈에서 넣은 목표'), '홈에서 추가 → STUDY 이달의 목표 데이터에 저장');
+  ok($('#homeGoals').textContent.includes('홈에서 넣은 목표'), '홈 카드에 바로 반영');
+
+  click($('[data-act="open-study"]'));
+  ok($('#modalBody').textContent.includes('홈에서 넣은 목표'), 'STUDY 이달의 목표에도 같은 항목');
+  const studMonthForm = $('#modalBody [data-form="goal"][data-scope="month"]');
+  fld(studMonthForm, 'text').value = 'STUDY에서 넣은 목표';
+  submit(studMonthForm);
+  await tick();
+  click($('[data-act="modal-close"]'));
+  ok($('#homeGoals').textContent.includes('STUDY에서 넣은 목표'), 'STUDY에서 추가 → 홈 카드에도 반영 (양방향)');
+
+  const hgRow = text => $$('#homeGoals .check-row').find(r => r.textContent.includes(text));
+  ok(!!hgRow('컴활접수 하기'), '홈 카드에 기존 이달의 목표 표시');
+  ok(!!hgRow('컴활접수 하기') && !!hgRow('컴활접수 하기').querySelector('[data-act="goal-edit"]') && !!hgRow('컴활접수 하기').querySelector('[data-act="goal-del"]'), '홈 카드에 수정(✏️)·삭제(✕) 버튼');
+
+  click(hgRow('홈에서 넣은 목표').querySelector('[data-act="goal-toggle"]'));
+  await tick();
+  ok(monthGoals().find(g => g.text === '홈에서 넣은 목표').done === true, '홈에서 체크 → 달성 상태 저장');
+  const hgRows = $$('#homeGoals .check-row');
+  const doneIdx = hgRows.findIndex(r => r.textContent.includes('홈에서 넣은 목표'));
+  ok(doneIdx === hgRows.length - 1, '달성한 항목은 목록 제일 아래로 정렬', `${doneIdx + 1}/${hgRows.length}`);
+  ok(hgRows[doneIdx].classList.contains('done'), '달성 행에 done 클래스');
+  ok(/\.check-row\.done \.txt\{[^}]*text-decoration:line-through/.test(css) && /\.check-row\.done \.txt\{[^}]*color:/.test(css), '달성 표시 = 취소선 + 연한 글자색');
+
+  click($('[data-act="open-study"]'));
+  const monthSec = $$('#modalBody .sec').find(s => {
+    const h = s.querySelector('.sec-head h3');
+    return h && h.textContent.includes('이달의 목표');
+  });
+  const mRows = monthSec ? Array.from(monthSec.querySelectorAll('.check-row')) : [];
+  ok(mRows.length >= 3 && mRows[mRows.length - 1].textContent.includes('홈에서 넣은 목표'), 'STUDY 모달도 달성 항목을 아래로 정렬', mRows.map(r => r.textContent.replace(/[✓✏️✕\s]/g, ' ').trim()).join(' | '));
+  ok(!!mRows.length && mRows[mRows.length - 1].classList.contains('done'), 'STUDY 모달도 같은 완료 스타일');
+  click($('[data-act="modal-close"]'));
+
+  click(hgRow('STUDY에서 넣은 목표').querySelector('[data-act="goal-edit"]'));
+  await tick();
+  let hp = doc.querySelector('.prompt');
+  ok(!!hp && hp.textContent.includes('이달의 목표 수정'), '홈 ✏️ → 이달의 목표 수정 창', hp && hp.textContent.slice(0, 30));
+  if (hp) { fld(hp, 'text').value = '홈에서 고친 목표'; click(hp.querySelector('[data-x="ok"]')); await tick(); }
+  ok(monthGoals().some(g => g.text === '홈에서 고친 목표'), '홈에서 수정한 목표 저장');
+  ok($('#homeGoals').textContent.includes('홈에서 고친 목표'), '홈 카드에 수정 반영');
+
+  const tempForm = $('#homeGoals [data-form="goal"]');
+  fld(tempForm, 'text').value = '삭제할 목표';
+  submit(tempForm);
+  await tick();
+  click(hgRow('삭제할 목표').querySelector('[data-act="goal-del"]'));
+  await tick();
+  ok(!monthGoals().some(g => g.text === '삭제할 목표'), '홈 ✕ → 목표 삭제');
+  ok(!$('#homeGoals').textContent.includes('삭제할 목표'), '홈 카드에서 삭제 반영');
+
+  console.log('▸ 📈 투자 상위 탭');
+  const navBtns = $$('.nav-btn');
+  const navLabels = navBtns.map(b => b.querySelector('.nav-label').textContent.trim());
+  ok(navLabels[1] === '가계부' && navLabels[2] === '투자', '가계부 바로 아래에 투자 탭', navLabels.join(','));
+  ok(navBtns[2].querySelector('.nav-ico').textContent.includes('📈'), '투자 아이콘 📈');
+  click(navBtns[2]);
+  ok(!$('#modalRoot').hidden && $('#modalTitle').textContent.includes('투자'), '투자 탭 → 모달', $('#modalTitle').textContent);
+  const invBody = $('#modalBody').textContent;
+  ok(invBody.includes('재무목표') && invBody.includes('주식투자'), '투자 모달에 재무목표·주식투자 섹션');
+  ok(!invBody.includes('가계부 캘린더') && !invBody.includes('정기구독 관리'), '투자 모달에 가계부 섹션 없음');
+
+  const fgoalForm = $('#modalBody [data-form="fgoal"]');
+  fld(fgoalForm, 'name').value = '테스트 비상금';
+  fld(fgoalForm, 'target').value = '3000000';
+  fld(fgoalForm, 'saved').value = '1200000';
+  fld(fgoalForm, 'deadline').value = '2027-06-30';
+  submit(fgoalForm);
+  await tick();
+  ok($('#modalBody').textContent.includes('테스트 비상금') && $('#modalBody').textContent.includes('40%'), '투자 모달에서 재무목표 추가·진행률');
+  ok(w.__GD.state.finance.goals.some(g => g.name === '테스트 비상금' && g.target === 3000000), 'goals 키 그대로 저장');
+  const invForm2 = $('#modalBody [data-form="invest"]');
+  fld(invForm2, 'name').value = '테스트 배당주';
+  fld(invForm2, 'stance').value = '보유';
+  submit(invForm2);
+  await tick();
+  ok(w.__GD.state.finance.invest.some(v => v.name === '테스트 배당주'), 'invest 키 그대로 저장');
+
+  click($('[data-act="modal-close"]'));
+  click($('[data-act="open-finance"]'));
+  ok(!$('#modalBody').textContent.includes('재무목표') && !$('#modalBody').textContent.includes('주식투자') && !$('#modalBody').textContent.includes('테스트 비상금'), '가계부 모달에서는 재무목표·투자 완전 제거');
+  ok($('#modalBody').textContent.includes('가계부 캘린더') && $('#modalBody').textContent.includes('정기구독 관리'), '가계부에는 캘린더·정기구독만');
+  const savedFin = JSON.parse(w.localStorage.getItem('gayeon_dashboard_v3') || 'null');
+  ok(!!savedFin && savedFin.finance.goals.some(g => g.name === '테스트 비상금') && savedFin.finance.invest.some(v => v.name === '테스트 배당주'), '저장 데이터에 goals·invest 키 유지(호환)');
+  const legacyFin = w.__GD.normalize({ v: 3, finance: { goals: [{ id: 'g1', name: '옛 목표', target: 100, saved: 10 }], invest: [{ id: 'v1', name: '옛 종목', stance: '보유' }] } });
+  ok(legacyFin.finance.goals.length === 1 && legacyFin.finance.invest.length === 1, '기존 클라우드·로컬 데이터 그대로 읽힘');
+
+  console.log('▸ 가계부 요약 카드 → 이번 달 상세');
+  click($('[data-act="fin-today"]'));
+  click($('[data-act="fin-next"]'));
+  ok($('#finMonthLabel').textContent.includes('12월'), '가계부 12월로 이동', $('#finMonthLabel').textContent.trim().slice(0, 20));
+  click($('.fcal-day[data-date="2026-12-01"]'));
+  const moneyF = $('#modalBody [data-form="expense"]');
+  fld(moneyF, 'title').value = '테스트 용돈';
+  fld(moneyF, 'amount').value = '930000';
+  const mType = fld(moneyF, 'type');
+  mType.value = 'income';
+  mType.dispatchEvent(new w.Event('change', { bubbles: true }));
+  fld(moneyF, 'cat').value = '용돈';
+  submit(moneyF);
+  await tick();
+  const incomeCard = $('#modalBody .stat.income');
+  ok(!!incomeCard && incomeCard.dataset.act === 'fin-detail' && incomeCard.dataset.kind === 'income', '이번 달 수입 카드가 클릭 가능한 버튼');
+  ok(!!incomeCard && /상세/.test(incomeCard.textContent), '카드에 상세 보기 힌트', incomeCard && incomeCard.textContent.replace(/\s+/g, ' '));
+  ok(!!$('#modalBody .stat.spend[data-act="fin-detail"]') && !!$('#modalBody .stat.plan[data-act="fin-detail"]'), '지출·예정 지출 카드도 클릭 가능');
+
+  click(incomeCard);
+  ok(!$('#modalRoot').hidden && /이번 달 수입/.test($('#modalTitle').textContent), '수입 카드 → 이번 달 수입 상세 팝업', $('#modalTitle').textContent);
+  const incDetail = $('#modalBody').textContent.replace(/\s+/g, ' ');
+  ok(incDetail.includes('알바·급여') && incDetail.includes('용돈'), '상세에 카테고리 표시');
+  ok(incDetail.includes('알바·급여 40%') && incDetail.includes('용돈 60%'), '카테고리별 퍼센트(알바·급여 40% · 용돈 60%)', incDetail.slice(0, 140));
+  ok(!!$('#modalBody svg.donut'), '상세 최상단 원형(도넛) 그래프');
+  ok($$('#modalBody .donut .dseg').length === 2, '카테고리 수만큼 도넛 조각', $$('#modalBody .donut .dseg').length);
+  const legendPc = $$('#modalBody .chart-legend .pc').map(e => parseInt(e.textContent, 10));
+  ok(legendPc.reduce((a, b) => a + b, 0) === 100, '범례 퍼센트 합 100', legendPc.join(','));
+  ok($('#modalBody').textContent.includes('₩620,000') && $('#modalBody').textContent.includes('₩930,000'), '범례에 카테고리별 금액');
+  const fdRows = $$('#modalBody .fd-row');
+  ok(fdRows.length >= 2, '상세 내역 목록', fdRows.length);
+  ok($$('#modalBody .fd-row .fd-date').length === fdRows.length && $$('#modalBody .fd-row .fd-cat').length === fdRows.length, '각 행에 날짜·카테고리');
+  ok($$('#modalBody [data-act$="-edit"]').length === 0 && $$('#modalBody [data-act$="-del"]').length === 0, '상세 목록에 수정·삭제 버튼 없음');
+  ok(!/[✏️✕]/.test($('#modalBody').textContent), '상세 목록에 ✏️·✕ 문구 없음');
+
+  click($('[data-act="modal-close"]'));
+  ok(!$('#modalRoot').hidden && $('#modalTitle').textContent.includes('가계부'), '상세를 닫으면 가계부 모달로 복귀', $('#modalTitle').textContent);
+  click($('#modalBody .stat.spend'));
+  ok(/이번 달 지출/.test($('#modalTitle').textContent), '지출 카드 → 이번 달 지출 상세', $('#modalTitle').textContent);
+  ok($('#modalBody').textContent.includes('식비') && $('#modalBody').textContent.includes('8,500'), '지출 상세에 식비 내역');
+  click($('[data-act="modal-close"]'));
+  click($('#modalBody .stat.plan'));
+  ok(/예정 지출/.test($('#modalTitle').textContent), '예정 지출 카드 → 예정 상세', $('#modalTitle').textContent);
+  ok($('#modalBody').textContent.includes('구매예정') && $('#modalBody').textContent.includes('정기구독'), '예정 상세에 구매예정·정기구독');
+  ok($$('#modalBody .fd-row').length >= 2, '예정 상세 행', $$('#modalBody .fd-row').length);
+  click($('[data-act="modal-close"]'));
+
+  click($('[data-act="fin-next"]'));
+  click($('#modalBody .stat.income'));
+  ok($('#modalBody').textContent.includes('보여줄 비율이 없어요') && !$('#modalBody svg.donut'), '내역 0건 → 빈 상태 안내', $('#modalBody').textContent.replace(/\s+/g, ' ').slice(0, 90));
+  click($('[data-act="modal-close"]'));
+  click($('[data-act="modal-close"]'));
+
+  console.log('▸ 원형 그래프 계산');
+  const chart = w.__GD.chartParts([{ cat: '알바·급여', amount: 620000 }, { cat: '용돈', amount: 930000 }]);
+  ok(chart.total === 1550000 && chart.rows[0].cat === '용돈' && chart.rows[0].pct === 60 && chart.rows[1].pct === 40, '카테고리 합계·비중 계산', JSON.stringify(chart.rows));
+  ok(chart.rows.reduce((s, r) => s + r.pct, 0) === 100, '비중 합 100');
+  const thirds = w.__GD.chartParts([{ cat: 'A', amount: 1 }, { cat: 'B', amount: 1 }, { cat: 'C', amount: 1 }]);
+  ok(thirds.rows.reduce((s, r) => s + r.pct, 0) === 100, '나눠떨어지지 않아도 합 100', thirds.rows.map(r => r.pct).join(','));
+  ok(w.__GD.chartParts([]).total === 0 && w.__GD.chartParts([]).rows.length === 0, '내역이 없으면 빈 차트');
+  ok(String(w.__GD.donutSvg([{ cat: 'A', amount: 1, pct: 100 }], 1)).includes('var(--chart-1)'), '도넛 색은 테마 팔레트 변수');
+  ok(/:root\{[^}]*--chart-1:/.test(css) && /body\[data-theme="xmas"\]\{[^}]*--chart-1:/.test(css), '파스텔 하늘·크리스마스 두 테마 차트 팔레트');
+  ok(/\.stat-btn\{/.test(css) && /\.stat-go\{/.test(css) && /\.chart-legend\{/.test(css), '요약 카드·범례 스타일');
 
   console.log('▸ 큰 상세 캘린더 모달');
   click($('[data-act="modal-close"]'));
