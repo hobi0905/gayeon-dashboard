@@ -27,7 +27,6 @@ const SEED_EVENTS = [
   ['컴활접수', '2026-11-28', null, null, null, 'study'],
   ['지안수마켓 21시', '2026-11-29', null, '21:00', '22:00', 'personal'],
   ['약속잡기', '2026-12-06', null, null, null, 'personal'],
-  ['충북대 편입 원서접수', '2026-12-10', '2026-12-16', null, null, 'study'],
   ['부평상공회의소 컴활2급 필기', '2026-12-12', null, '14:50', '15:50', 'study'],
   ['약 마지막', '2026-12-14', null, null, null, 'health'],
   ['생리예정', '2026-12-18', '2026-12-22', null, null, 'health'],
@@ -39,7 +38,6 @@ const SEED_EVENTS = [
   ['고시원 연락 돌리기', '2027-01-04', null, null, null, 'personal'],
   ['고시원 투어', '2027-01-09', null, null, null, 'personal'],
   ['약 마지막', '2027-01-11', null, null, null, 'health'],
-  ['임규정 인천대 면접', '2027-01-14', null, null, null, 'study'],
   ['생리예정', '2027-01-15', '2027-01-19', null, null, 'health'],
   ['약 다시 시작', '2027-01-19', null, null, null, 'health'],
   ['이제부터 임규정이랑 놀 수 있음!!', '2027-01-24', null, null, null, 'personal'],
@@ -55,47 +53,79 @@ const SEED_EVENTS = [
   ['종합소득세 신고', '2027-05-01', null, null, null, 'personal'],
   ['인하대 교대원 원서접수일', '2027-05-03', null, null, null, 'study'],
   ['숙대 교대원 면접일자', '2027-05-29', null, null, null, 'study'],
-  ['인하대 면접예정일', '2027-06-07', '2027-06-09', null, null, 'study'],
   ['숙대 교대원 최초합격자 발표', '2027-06-10', null, null, null, 'study'],
   ['인하대 교대원 합격자 발표', '2027-06-24', null, '10:00', '11:00', 'study'],
 ];
 
 const SEED_EXAMS = [
-  ['충북대 편입 원서접수', '2026-12-10', '지원', '12/10~12/16 · 컴퓨터공학과'],
   ['컴활 2급 필기', '2026-12-12', '시험', '14:50 부평상공회의소'],
   ['AI활용전문가시험', '2026-12-24', '시험', ''],
-  ['임규정 인천대 면접', '2027-01-14', '면접', ''],
   ['ADsP 시험', '2027-02-06', '시험', '1/4 접수·공부 시작'],
   ['숙대 교대원 원서접수', '2027-04-26', '지원', ''],
   ['인하대 교대원 원서접수', '2027-05-03', '지원', ''],
   ['숙대 교대원 면접', '2027-05-29', '면접', ''],
-  ['인하대 면접예정일', '2027-06-07', '면접', '06-07~06-09'],
   ['숙대 교대원 최초합격자 발표', '2027-06-10', '지원', ''],
   ['인하대 교대원 합격자 발표', '2027-06-24', '면접', '10:00'],
 ];
 
 const DEFAULT_CODE = 'GAEYON-SKY-2026';
-const DEFAULT_COVER = 'assets/cover-sky-cat.jpg';
-const DEFAULT_CAT = 'assets/cat-card.jpg';
+const THEMES = {
+  sky: { label: '🩵 파스텔 하늘', short: '파스텔 하늘', cover: 'assets/cover-sky-cat.jpg', cat: 'assets/cat-card.jpg' },
+  xmas: { label: '🎄 12월 크리스마스', short: '크리스마스', cover: 'assets/xmas-london.jpg', cat: 'assets/xmas-cat.jpg' },
+};
+const DEFAULT_THEME = 'xmas';
+const themeOf = st => (st && THEMES[st.theme] ? st.theme : DEFAULT_THEME);
+const DEFAULT_COVER = THEMES.sky.cover;
+const DEFAULT_CAT = THEMES.sky.cat;
 const DEFAULT_AVATAR = 'assets/profile-avatar.png';
+const XMAS_PRESETS = [
+  { src: 'assets/xmas-cat.jpg', thumb: 'assets/xmas-cat-thumb.jpg', label: '눈 고양이' },
+  { src: 'assets/xmas-london.jpg', thumb: 'assets/xmas-london-thumb.jpg', label: '런던의 밤' },
+  { src: 'assets/xmas-velvet-tree.jpg', thumb: 'assets/xmas-velvet-tree-thumb.jpg', label: '벨벳 트리' },
+  { src: 'assets/xmas-vinyl.jpg', thumb: 'assets/xmas-vinyl-thumb.jpg', label: '레드 바이닐' },
+  { src: 'assets/xmas-snowman.jpg', thumb: 'assets/xmas-snowman-thumb.jpg', label: '눈사람' },
+  { src: 'assets/xmas-park-tree.jpg', thumb: 'assets/xmas-park-tree-thumb.jpg', label: '공원 트리' },
+  { src: 'assets/xmas-empire.jpg', thumb: 'assets/xmas-empire-thumb.jpg', label: '엠파이어' },
+  { src: 'assets/xmas-night-tree.jpg', thumb: 'assets/xmas-night-tree-thumb.jpg', label: '밤 트리' },
+];
 const COVER_PRESETS = [
   { src: DEFAULT_COVER, label: '하늘 고양이' },
   { src: 'assets/photo-sea.jpg', label: '바다' },
   { src: 'assets/photo-cd.jpg', label: 'CD 케이스' },
   { src: 'assets/cover-cozy-cat.jpg', label: '코지 캣' },
+  ...XMAS_PRESETS,
 ];
 const CAT_PRESETS = [
   { src: DEFAULT_CAT, label: '아침 고양이' },
   { src: 'assets/photo-sea.jpg', label: '바다' },
   { src: 'assets/photo-cd.jpg', label: 'CD 케이스' },
   { src: DEFAULT_COVER, label: '하늘 고양이' },
+  ...XMAS_PRESETS,
 ];
 function presetRow(kind, presets, current) {
   const cur = current || presets[0].src;
   return `<div class="preset-row">${presets.map(p => `
     <button class="preset ${cur === p.src ? 'on' : ''}" data-act="${kind === 'cover' ? 'set-cover' : 'set-cat'}" data-src="${esc(p.src)}" title="${esc(p.label)}">
-      <img src="${esc(p.src)}" alt="${esc(p.label)}"><span>${esc(p.label)}</span>
+      <img src="${esc(p.thumb || p.src)}" alt="${esc(p.label)}" loading="lazy"><span>${esc(p.label)}</span>
     </button>`).join('')}</div>`;
+}
+
+/* 기본 시드에서 빠진 남자친구 편입 일정 — 기존 localStorage·클라우드 값도 앱에서 한 번 정리한다 */
+const RETIRED_SEED_EVENTS = ['충북대 편입 원서접수', '인하대 면접예정일', '임규정 인천대 면접'];
+const RETIRED_SEED_GOALS = ['충북대 편입 원서 준비물 확인', '충북대 모집요강 일정 다시 보기'];
+function purgeRetiredSeeds(s) {
+  let changed = false;
+  const drop = (arr, key, titles) => (Array.isArray(arr) ? arr.filter(x => {
+    const hit = x && titles.includes(String(x[key] || '').trim());
+    if (hit) changed = true;
+    return !hit;
+  }) : arr);
+  s.events = drop(s.events, 'title', RETIRED_SEED_EVENTS);
+  if (s.study) {
+    s.study.exams = drop(s.study.exams, 'name', RETIRED_SEED_EVENTS);
+    ['month', 'week', 'today'].forEach(k => { s.study[k] = drop(s.study[k], 'text', RETIRED_SEED_GOALS); });
+  }
+  return changed;
 }
 
 function seedState() {
@@ -103,15 +133,15 @@ function seedState() {
     v: 3,
     title: 'My Dashboard',
     quote: '“호비랑 서리를 먹여살리기 위한 몸부림”',
+    theme: DEFAULT_THEME,
     cover: null,
     cat: null,
     avatar: null,
     study: {
       month: [
         { id: uid(), text: '컴활접수 하기 (11/28)', done: false },
-        { id: uid(), text: '충북대 편입 원서 준비물 확인', done: false },
       ],
-      week: [{ id: uid(), text: '충북대 모집요강 일정 다시 보기', done: false }],
+      week: [],
       today: [],
       exams: SEED_EXAMS.map(([name, date, type, memo]) => ({ id: uid(), name, date, type, memo })),
     },
@@ -135,6 +165,7 @@ function seedState() {
 /* ───────────── state ───────────── */
 const LS_KEY = 'gayeon_dashboard_v3';
 let state;
+let pendingSeedCleanup = false;
 let viewMonth = new Date(); viewMonth.setDate(1);
 let finMonth = new Date(); finMonth.setDate(1);
 let finSel = todayISO();
@@ -148,13 +179,19 @@ function normalize(s) {
   const out = Object.assign({}, base, s);
   out.study = Object.assign({ month: [], week: [], today: [], exams: [] }, s.study || {});
   out.finance = Object.assign({ expenses: [], goals: [], invest: [], subs: [], planned: [] }, s.finance || {});
+  out.finance.subs = (out.finance.subs || []).map(sub => Object.assign({}, sub, {
+    cycle: sub && sub.cycle === 'yearly' ? 'yearly' : 'monthly',
+    month: Math.min(12, Math.max(1, Number(sub && sub.month) || 1)),
+  }));
   out.wish = Object.assign({ want: [], need: [] }, s.wish || {});
   out.memo = Object.assign({ diary: [], habits: [], notes: [] }, s.memo || {});
   out.events = Array.isArray(s.events) ? s.events : base.events;
   out.todo = Array.isArray(s.todo) ? s.todo : [];
   out.sync = Object.assign({ code: DEFAULT_CODE, enabled: true }, s.sync || {});
   out.meta = Object.assign({ pristine: false }, s.meta || {});
+  out.theme = THEMES[s.theme] ? s.theme : DEFAULT_THEME;
   out.v = 3;
+  purgeRetiredSeeds(out);
   return out;
 }
 
@@ -163,7 +200,15 @@ function loadState() {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.v === 3) return normalize(parsed);
+      if (parsed && parsed.v === 3) {
+        const purged = purgeRetiredSeeds(parsed);
+        const out = normalize(parsed);
+        if (purged) {
+          pendingSeedCleanup = true;
+          try { localStorage.setItem(LS_KEY, JSON.stringify(out)); } catch (e) {}
+        }
+        return out;
+      }
     }
     const legacy = localStorage.getItem('gayeon_dashboard_v2');
     if (legacy) { const p = JSON.parse(legacy); if (p) return normalize(p); }
@@ -191,13 +236,40 @@ function renderAll() {
 }
 
 function renderHero() {
-  $('#coverImg').src = state.cover || DEFAULT_COVER;
-  $('#catImg').src = state.cat || DEFAULT_CAT;
+  applyTheme();
+  $('#coverImg').src = state.cover || themeCover(themeOf(state));
+  $('#catImg').src = state.cat || (THEMES[themeOf(state)] || THEMES.sky).cat;
   const av = $('#avatarImg'); if (av) av.src = state.avatar || DEFAULT_AVATAR;
   const t = $('#pageTitle'); if (document.activeElement !== t) t.textContent = state.title || 'My Dashboard';
   const q = $('#quoteText'); if (document.activeElement !== q) q.textContent = state.quote || '';
   const now = new Date();
   $('#catDate').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일`;
+}
+
+/* ───────────── theme ───────────── */
+const themeCover = t => (THEMES[t] || THEMES.sky).cover;
+function applyTheme() {
+  const t = themeOf(state);
+  if (document.body) document.body.dataset.theme = t;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', t === 'xmas' ? '#1f4a3a' : '#e8f3fd');
+  const btn = $('#themeToggle');
+  if (btn) {
+    const next = t === 'xmas' ? 'sky' : 'xmas';
+    btn.dataset.next = next;
+    btn.title = `테마 바꾸기 · ${THEMES[next].label}`;
+    const ico = btn.querySelector('.tt-ico'); if (ico) ico.textContent = next === 'xmas' ? '🎄' : '🩵';
+    const lb = btn.querySelector('.tt-label'); if (lb) lb.textContent = THEMES[next].short;
+  }
+}
+function switchTheme(next) {
+  const prev = themeOf(state);
+  if (!THEMES[next] || next === prev) return;
+  if (!state.cover || state.cover === THEMES[prev].cover) state.cover = null;
+  if (!state.cat || state.cat === THEMES[prev].cat) state.cat = null;
+  state.theme = next;
+  commit();
+  toast(next === 'xmas' ? '🎄 크리스마스 테마로 바꿨어요' : '🩵 파스텔 하늘 테마로 돌아왔어요');
 }
 
 /* ───────────── d-day ───────────── */
@@ -268,11 +340,27 @@ function expensesOn(dateStr) {
 function spentOn(dateStr) {
   return expensesOn(dateStr).reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
 }
+function subCycleLabel(s) {
+  const day = Number(s.day) || 1;
+  return s.cycle === 'yearly' ? `매년 ${Number(s.month) || 1}월 ${day}일` : `매월 ${day}일`;
+}
+/* 말일 보정 — 매달 31일 결제처럼 그 달에 없는 날짜는 그 달 마지막 날로 */
+function subHitsOn(s, y, m, d) {
+  const last = daysInMonth(y, m - 1);
+  const target = Math.min(Math.max(1, Number(s.day) || 1), last);
+  if (d !== target) return false;
+  if (s.cycle === 'yearly') return Number(s.month) === m;
+  return true;
+}
 function plannedOn(dateStr) {
-  const day = parseISO(dateStr).getDate();
+  const dt = parseISO(dateStr);
+  const y = dt.getFullYear(), m = dt.getMonth() + 1, day = dt.getDate();
   const out = [];
-  state.finance.subs.filter(s => s.active && Number(s.day) === day)
-    .forEach(s => out.push({ name: s.name, amount: Number(s.amount) || 0, kind: '정기구독' }));
+  state.finance.subs.filter(s => s.active && subHitsOn(s, y, m, day))
+    .forEach(s => out.push({
+      name: s.name, amount: Number(s.amount) || 0,
+      kind: s.cycle === 'yearly' ? '정기구독 · 매년' : '정기구독',
+    }));
   state.finance.planned.filter(p => p.date === dateStr)
     .forEach(p => out.push({ name: p.name, amount: Number(p.amount) || 0, kind: '구매예정' }));
   return out;
@@ -424,6 +512,10 @@ function renderStudyModal() {
 }
 
 /* ───────────── finance modal ───────────── */
+/* 정기구독 결제일 선택지 */
+const monthOptions = (sel) => Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${Number(sel) === i + 1 ? 'selected' : ''}>${i + 1}월</option>`).join('');
+const dayOptions = (sel) => Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${Number(sel) === i + 1 ? 'selected' : ''}>${i + 1}일</option>`).join('');
+
 function financeStats() {
   const y = finMonth.getFullYear(), m = finMonth.getMonth();
   const prefix = `${y}-${pad2(m + 1)}`;
@@ -490,12 +582,13 @@ function renderFinanceModal() {
   const goals = state.finance.goals;
   const invest = state.finance.invest;
   const subs = state.finance.subs;
-  const subsTotal = subs.filter(s => s.active).reduce((a, s) => a + (Number(s.amount) || 0), 0);
+  const monthlySubs = subs.filter(s => s.active && s.cycle !== 'yearly').reduce((a, s) => a + (Number(s.amount) || 0), 0);
+  const yearlySubs = subs.filter(s => s.active && s.cycle === 'yearly').reduce((a, s) => a + (Number(s.amount) || 0), 0);
   return `
     <div class="stat-row">
       <div class="stat spend"><div class="k">이번 달 총 지출</div><div class="v">₩${won(st.spent)}</div></div>
       <div class="stat plan"><div class="k">앞으로 나갈 예정</div><div class="v">₩${won(st.planned)}</div></div>
-      <div class="stat"><div class="k">활성 구독 · 매달</div><div class="v">₩${won(subsTotal)}<small> /월</small></div></div>
+      <div class="stat"><div class="k">활성 구독 · 매달</div><div class="v">₩${won(monthlySubs)}<small> /월</small></div>${yearlySubs ? `<div class="stat-sub">＋ 연 ₩${won(yearlySubs)}</div>` : ''}</div>
     </div>
 
     <section class="sec">
@@ -569,17 +662,20 @@ function renderFinanceModal() {
       ${subs.length ? `<div class="row-list">${subs.map(s => `
         <div class="drow">
           <button class="switch ${s.active ? 'on' : ''}" data-act="sub-toggle" data-id="${s.id}" aria-label="활성"></button>
-          <span class="grow"><b>${esc(s.name)}</b> <span class="muted">매월 ${esc(String(s.day))}일</span></span>
-          <span class="dday-pill">₩${won(s.amount)}</span>
+          <span class="grow"><b>${esc(s.name)}</b> <span class="muted">${esc(subCycleLabel(s))}</span></span>
+          <span class="dday-pill">₩${won(s.amount)}${s.cycle === 'yearly' ? '<small> /년</small>' : ''}</span>
           <button class="icon-x" data-act="sub-edit" data-id="${s.id}">✏️</button>
           <button class="icon-x" data-act="sub-del" data-id="${s.id}">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">활성 구독은 결제일마다 캘린더에 예정 금액으로 자동 표시돼요</div>'}
       <form class="add-form" data-form="sub">
         <input class="in grow" name="name" placeholder="서비스명 (예: 유튜브 프리미엄)" maxlength="40" required>
-        <input class="in num" name="amount" inputmode="numeric" placeholder="월 금액" required>
-        <input class="in num" name="day" inputmode="numeric" placeholder="결제일" required>
+        <input class="in num" name="amount" inputmode="numeric" placeholder="금액" required>
+        <select class="in cycle-select" name="cycle"><option value="monthly">매달</option><option value="yearly">매년</option></select>
+        <select class="in sub-month" name="month">${monthOptions(1)}</select>
+        <select class="in sub-day" name="day">${dayOptions(1)}</select>
         <button class="btn primary" type="submit">추가</button>
       </form>
+      <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 = 매월 그 날, 매년 = 그 달·그 날에만 예정 지출로 표시돼요. 31일처럼 없는 날은 그 달 말일로 맞춰줘요.</div>
     </section>`;
 }
 
@@ -771,12 +867,30 @@ function renderDayModal(dateStr) {
 /* ───────────── settings modal ───────────── */
 function renderSettingsModal() {
   const code = state.sync.code || '';
+  const curTheme = themeOf(state);
   return `
+    <section class="sec">
+      <div class="sec-head"><h3><span class="em">🎨</span>테마</h3><span class="sec-note">지금 · ${esc(THEMES[curTheme].label)}</span></div>
+      <div class="sec-card">
+        <div class="theme-row">
+          <button class="theme-opt ${curTheme === 'sky' ? 'on' : ''}" data-act="set-theme" data-theme="sky">
+            <img src="assets/cover-sky-cat.jpg" alt="파스텔 하늘 테마">
+            <b>🩵 파스텔 하늘</b><span>차분한 하늘색 · 화이트</span>
+          </button>
+          <button class="theme-opt ${curTheme === 'xmas' ? 'on' : ''}" data-act="set-theme" data-theme="xmas">
+            <img src="assets/xmas-london-thumb.jpg" alt="크리스마스 테마">
+            <b>🎄 12월 크리스마스</b><span>크림 · 딥 그린 · 레드 · 골드</span>
+          </button>
+        </div>
+        <div class="hint">테마를 바꾸면 커버·고양이 카드 기본 사진과 색이 함께 바뀌어요. 상단 빠른 버튼으로도 바로 전환할 수 있어요.</div>
+      </div>
+    </section>
+
     <div class="set-grid">
       <div class="set-card">
         <h4>🖼 상단 커버</h4>
-        <img class="thumb" src="${esc(state.cover || DEFAULT_COVER)}" alt="cover">
-        ${presetRow('cover', COVER_PRESETS, state.cover || DEFAULT_COVER)}
+        <img class="thumb" src="${esc(state.cover || themeCover(curTheme))}" alt="cover">
+        ${presetRow('cover', COVER_PRESETS, state.cover || themeCover(curTheme))}
         <div class="add-form">
           <button class="btn" data-act="pick-cover">내 사진 올리기</button>
           <button class="btn flat" data-act="reset-cover">기본으로</button>
@@ -785,8 +899,8 @@ function renderSettingsModal() {
       </div>
       <div class="set-card">
         <h4>🐱 고양이 카드</h4>
-        <img class="thumb arch" src="${esc(state.cat || DEFAULT_CAT)}" alt="cat">
-        ${presetRow('cat', CAT_PRESETS, state.cat || DEFAULT_CAT)}
+        <img class="thumb arch" src="${esc(state.cat || (THEMES[curTheme] || THEMES.sky).cat)}" alt="cat">
+        ${presetRow('cat', CAT_PRESETS, state.cat || (THEMES[curTheme] || THEMES.sky).cat)}
         <div class="add-form">
           <button class="btn" data-act="pick-cat">사진 바꾸기</button>
           <button class="btn flat" data-act="reset-cat">기본으로</button>
@@ -956,20 +1070,31 @@ function applyRemote(remote) {
   if (!remote || !remote.state) return;
   applyingRemote = true;
   const code = state.sync.code;
+  const purged = purgeRetiredSeeds(remote.state);
   state = normalize(remote.state);
   state.sync = { code, enabled: true };
   state.meta = { pristine: false };
   state.updatedAt = remote.updatedAt || Date.now();
+  if (purged) state.updatedAt = Date.now();
   try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
   lastSyncAt = Date.now();
   renderAll();
   applyingRemote = false;
+  /* 옛 시드 편입 일정이 남아 있던 클라우드를 깨끗한 내용으로 다시 올린다 */
+  if (purged) schedulePush();
 }
 
 function schedulePush() {
   if (!started || applyingRemote) return;
   clearTimeout(pushTimer);
   pushTimer = setTimeout(() => { cloudPush(); }, 1200);
+}
+
+/* 옛 시드 편입 일정을 지운 기기 내용을 클라우드에도 반영 (첫 pull 이후에만) */
+function flushSeedCleanup() {
+  if (!pendingSeedCleanup) return;
+  pendingSeedCleanup = false;
+  commit();
 }
 
 async function startSync() {
@@ -987,6 +1112,7 @@ async function startSync() {
     await cloudPush();
   }
   subscribeRealtime();
+  flushSeedCleanup();
   setInterval(() => { if (!document.hidden) tickSync(); }, 60000);
 }
 
@@ -1091,11 +1217,14 @@ const FORMS = {
     commit();
   },
   sub(form) {
-    const name = fv(form, 'name'); const amount = clampNum(fv(form, 'amount')); let day = clampNum(fv(form, 'day'));
+    const name = fv(form, 'name'); const amount = clampNum(fv(form, 'amount'));
+    let day = clampNum(fv(form, 'day'));
     if (!name || !amount || !day) return toast('서비스명·금액·결제일을 채워주세요');
     if (day < 1) day = 1; if (day > 31) day = 31;
-    state.finance.subs.push({ id: uid(), name, amount, day, active: true });
-    commit();
+    const cycle = fv(form, 'cycle') === 'yearly' ? 'yearly' : 'monthly';
+    const month = Math.min(12, Math.max(1, clampNum(fv(form, 'month')) || 1));
+    state.finance.subs.push({ id: uid(), name, amount, day, cycle, month, active: true });
+    commit(); toast(cycle === 'yearly' ? '매년 정기구독으로 추가했어요' : '매달 정기구독으로 추가했어요');
   },
   want(form) {
     const name = fv(form, 'name'); if (!name) return;
@@ -1139,6 +1268,14 @@ document.addEventListener('submit', ev => {
   ev.preventDefault();
   const fn = FORMS[form.dataset.form];
   if (fn) fn(form);
+});
+
+/* 정기구독 주기 선택 → 매년일 때만 월 선택지 보이기 */
+document.addEventListener('change', ev => {
+  const sel = ev.target.closest('[data-form="sub"] select[name="cycle"]');
+  if (!sel) return;
+  const form = sel.closest('[data-form="sub"]');
+  if (form) form.classList.toggle('yearly', sel.value === 'yearly');
 });
 
 /* ───────────── click actions ───────────── */
@@ -1210,12 +1347,20 @@ document.addEventListener('click', async ev => {
         title: '정기구독 수정',
         fields: [
           { key: 'name', label: '서비스명', value: s.name },
-          { key: 'amount', label: '월 금액', value: s.amount, inputmode: 'numeric' },
-          { key: 'day', label: '결제일', value: s.day, inputmode: 'numeric' },
+          { key: 'amount', label: '금액', value: s.amount, inputmode: 'numeric' },
+          { key: 'cycle', label: '주기', type: 'select', options: ['매달', '매년'], value: s.cycle === 'yearly' ? '매년' : '매달' },
+          { key: 'month', label: '월 (매년일 때)', type: 'select', options: Array.from({ length: 12 }, (_, i) => `${i + 1}월`), value: `${s.month || 1}월` },
+          { key: 'day', label: '일', type: 'select', options: Array.from({ length: 31 }, (_, i) => `${i + 1}일`), value: `${s.day || 1}일` },
         ], confirmText: '저장',
       });
       if (!r) break;
-      Object.assign(s, { name: r.name.trim() || s.name, amount: clampNum(r.amount), day: Math.min(31, Math.max(1, clampNum(r.day) || s.day)) });
+      Object.assign(s, {
+        name: r.name.trim() || s.name,
+        amount: clampNum(r.amount),
+        cycle: r.cycle === '매년' ? 'yearly' : 'monthly',
+        month: Math.min(12, Math.max(1, parseInt(r.month, 10) || s.month || 1)),
+        day: Math.min(31, Math.max(1, parseInt(r.day, 10) || s.day || 1)),
+      });
       commit(); break;
     }
     case 'fgoal-del': state.finance.goals = state.finance.goals.filter(x => x.id !== id); commit(); break;
@@ -1365,8 +1510,10 @@ document.addEventListener('click', async ev => {
     case 'event-del': state.events = state.events.filter(x => x.id !== id); commit(); break;
 
     /* settings */
-    case 'set-cover': state.cover = t.dataset.src === DEFAULT_COVER ? null : t.dataset.src; commit(); break;
-    case 'set-cat': state.cat = t.dataset.src === DEFAULT_CAT ? null : t.dataset.src; commit(); break;
+    case 'theme-toggle': switchTheme(t.dataset.next || (themeOf(state) === 'xmas' ? 'sky' : 'xmas')); break;
+    case 'set-theme': switchTheme(t.dataset.theme); break;
+    case 'set-cover': state.cover = t.dataset.src === themeCover(themeOf(state)) ? null : t.dataset.src; commit(); break;
+    case 'set-cat': state.cat = t.dataset.src === (THEMES[themeOf(state)] || THEMES.sky).cat ? null : t.dataset.src; commit(); break;
     case 'pick-cover': $('#coverFile').click(); break;
     case 'pick-cat': $('#catFile').click(); break;
     case 'pick-avatar': $('#avatarFile').click(); break;
@@ -1646,6 +1793,8 @@ function boot() {
   };
   setTimeout(startWhenReady, 200);
   setTimeout(() => { if (!window.supabase) setSync('warn', '오프라인 · 기기에 저장 중'); }, 5000);
+  /* 동기화 모듈을 못 불러와도 기기에만이라도 정리 내용을 저장 */
+  setTimeout(() => { if (!started) flushSeedCleanup(); }, 5000);
 
   // 오늘 날짜가 바뀌면 다시 그리기
   let lastDay = todayISO();
@@ -1659,6 +1808,7 @@ function boot() {
 window.__GD = {
   get state() { return state; },
   seal, unseal, rowIdFor, cloudPush, cloudPull, applyRemote, startSync,
+  plannedOn, subCycleLabel, normalize,
 };
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

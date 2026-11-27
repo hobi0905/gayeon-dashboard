@@ -5,18 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Dashboard</title>
 <meta name="description" content="가연님의 파스텔 하늘색 개인 대시보드">
-<meta name="theme-color" content="#e8f3fd">
+<meta name="theme-color" content="#1f4a3a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Dashboard">
+<meta name="apple-mobile-web-app-title" content="가연 대시보드">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/cover-sky-cat.jpg">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=11">
+<link rel="stylesheet" href="styles.css?v=12">
 </head>
-<body>
+<body data-theme="xmas">
 <div class="app" id="app">
   <div class="top-band" aria-hidden="true"></div>
 
@@ -32,6 +34,9 @@
         <h1 class="page-title" id="pageTitle" contenteditable="true" spellcheck="false" data-field="title">My Dashboard</h1>
       </div>
       <div class="page-head-actions">
+        <button class="ghost-btn theme-toggle" id="themeToggle" data-act="theme-toggle" data-next="xmas" title="테마 바꾸기">
+          <span class="tt-ico">🎄</span><span class="tt-label">크리스마스</span>
+        </button>
         <button class="ghost-btn" data-act="open-settings" title="꾸미기 설정">🎨 꾸미기</button>
       </div>
     </div>
@@ -153,6 +158,6 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="app.js?v=8" defer></script>
+<script src="app.js?v=9" defer></script>
 </body>
 </html>
