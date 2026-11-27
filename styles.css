@@ -515,7 +515,11 @@ a{color:#6f9dc2;}
 /* habit */
 .habit-grid{display:grid;grid-template-columns:1fr repeat(7,26px);gap:5px;align-items:center;}
 .habit-grid .hd{font-size:9.5px;color:#a9bac7;text-align:center;font-family:var(--font-num);}
-.habit-grid .hn{font-size:12.5px;color:#4c6377;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:4px;}
+.habit-grid .hn{display:flex;align-items:center;gap:4px;font-size:12.5px;color:#4c6377;overflow:hidden;padding-right:4px;}
+.habit-grid .hn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.habit-grid .hn .hx{opacity:0;font-size:10px;padding:0 2px;transition:opacity .15s;}
+.habit-grid:hover .hn .hx{opacity:1;}
+@media (hover:none){ .habit-grid .hn .hx{opacity:1;} }
 .h-cell{
   width:23px;height:23px;border-radius:7px;border:1px solid #eaf3fa;background:#fbfdff;
   display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;padding:0;

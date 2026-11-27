@@ -657,7 +657,7 @@ function renderMemoModal() {
       <div class="sec-card">
         ${habits.length ? `<div class="habit-grid">
           <span></span>${week.map(d => `<span class="hd">${WEEK_KO[parseISO(d).getDay()]}</span>`).join('')}
-          ${habits.map(h => `<span class="hn" title="${esc(h.name)}">${esc(h.name)}</span>${week.map(d => {
+          ${habits.map(h => `<span class="hn" title="${esc(h.name)}"><span>${esc(h.name)}</span><button class="icon-x hx" data-act="habit-del" data-id="${h.id}" aria-label="습관 삭제">✕</button></span>${week.map(d => {
             const on = !!(h.log && h.log[d]);
             const future = d > today;
             return `<button class="h-cell ${on ? 'on' : ''} ${d === today ? 'today' : ''} ${future ? 'future' : ''}" data-act="habit-toggle" data-id="${h.id}" data-date="${d}">${on ? '✓' : ''}</button>`;
@@ -667,13 +667,6 @@ function renderMemoModal() {
           <input class="in grow" name="name" maxlength="30" placeholder="예: 물 2L 마시기" autocomplete="off">
           <button class="btn primary" type="submit">추가</button>
         </form>
-        ${habits.length ? `<div class="row-list">${habits.map(h => {
-          const doneCount = week.filter(d => h.log && h.log[d]).length;
-          return `<div class="drow" style="padding:5px 10px">
-            <span class="grow">${esc(h.name)} <span class="muted">주 ${doneCount}/7</span></span>
-            <button class="icon-x" data-act="habit-del" data-id="${h.id}">✕</button>
-          </div>`;
-        }).join('')}</div>` : ''}
       </div>
     </section>
 
