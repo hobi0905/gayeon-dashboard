@@ -77,6 +77,7 @@ const SEED_EXAMS = [
 const DEFAULT_CODE = 'GAEYON-SKY-2026';
 const DEFAULT_COVER = 'assets/cover-sky-cat.jpg';
 const DEFAULT_CAT = 'assets/cat-card.jpg';
+const DEFAULT_AVATAR = 'assets/profile-avatar.png';
 const COVER_PRESETS = [
   { src: DEFAULT_COVER, label: '하늘 고양이' },
   { src: 'assets/photo-sea.jpg', label: '바다' },
@@ -104,6 +105,7 @@ function seedState() {
     quote: '“호비랑 서리를 먹여살리기 위한 몸부림”',
     cover: null,
     cat: null,
+    avatar: null,
     study: {
       month: [
         { id: uid(), text: '컴활접수 하기 (11/28)', done: false },
@@ -189,8 +191,9 @@ function renderAll() {
 }
 
 function renderHero() {
-  $('#coverImg').src = state.cover || 'assets/cover-sky-cat.jpg';
-  $('#catImg').src = state.cat || 'assets/cat-card.jpg';
+  $('#coverImg').src = state.cover || DEFAULT_COVER;
+  $('#catImg').src = state.cat || DEFAULT_CAT;
+  const av = $('#avatarImg'); if (av) av.src = state.avatar || DEFAULT_AVATAR;
   const t = $('#pageTitle'); if (document.activeElement !== t) t.textContent = state.title || 'My Dashboard';
   const q = $('#quoteText'); if (document.activeElement !== q) q.textContent = state.quote || '';
   const now = new Date();
@@ -790,6 +793,17 @@ function renderSettingsModal() {
         </div>
         <div class="hint">아치형 카드에 들어갈 사진을 골라주세요.</div>
       </div>
+      <div class="set-card">
+        <h4>🐾 프로필 사진</h4>
+        <div class="avatar-preview">
+          <img class="avatar big" id="avatarPreview" src="${esc(state.avatar || DEFAULT_AVATAR)}" alt="프로필">
+          <div class="hint">상단 제목 옆에 보이는 동그란 사진이에요. 하치와레 고양이가 기본값!</div>
+        </div>
+        <div class="add-form">
+          <button class="btn" data-act="pick-avatar">프로필 사진 올리기</button>
+          <button class="btn flat" data-act="reset-avatar">기본으로</button>
+        </div>
+      </div>
     </div>
 
     <section class="sec">
@@ -1355,8 +1369,10 @@ document.addEventListener('click', async ev => {
     case 'set-cat': state.cat = t.dataset.src === DEFAULT_CAT ? null : t.dataset.src; commit(); break;
     case 'pick-cover': $('#coverFile').click(); break;
     case 'pick-cat': $('#catFile').click(); break;
+    case 'pick-avatar': $('#avatarFile').click(); break;
     case 'reset-cover': state.cover = null; commit(); toast('기본 커버로 돌아왔어요'); break;
     case 'reset-cat': state.cat = null; commit(); toast('기본 고양이로 돌아왔어요'); break;
+    case 'reset-avatar': state.avatar = null; commit(); toast('기본 프로필 사진으로 돌아왔어요'); break;
     case 'save-hero-text': {
       state.title = ($('#setTitle').value || 'My Dashboard').trim();
       state.quote = $('#setQuote').value.trim();
@@ -1500,6 +1516,7 @@ function setupFileInputs() {
   };
   mk('coverFile', 1600, 'cover', '커버 사진을 바꿨어요');
   mk('catFile', 900, 'cat', '고양이 사진을 바꿨어요');
+  mk('avatarFile', 600, 'avatar', '프로필 사진을 바꿨어요');
 
   const imp = document.createElement('input');
   imp.type = 'file'; imp.accept = 'application/json,.json'; imp.id = 'importFile'; imp.style.display = 'none';

@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
 <div class="app" id="app">
@@ -27,7 +27,10 @@
 
   <main class="page">
     <div class="page-head">
-      <h1 class="page-title" id="pageTitle" contenteditable="true" spellcheck="false" data-field="title">My Dashboard</h1>
+      <div class="ph-title">
+        <img class="avatar" id="avatarImg" src="assets/profile-avatar.png" alt="프로필 사진">
+        <h1 class="page-title" id="pageTitle" contenteditable="true" spellcheck="false" data-field="title">My Dashboard</h1>
+      </div>
       <div class="page-head-actions">
         <button class="ghost-btn" data-act="open-settings" title="꾸미기 설정">🎨 꾸미기</button>
       </div>
@@ -150,6 +153,6 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="app.js?v=6" defer></script>
+<script src="app.js?v=7" defer></script>
 </body>
 </html>
