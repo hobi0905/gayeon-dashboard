@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Dashboard</title>
+<meta name="description" content="가연님의 파스텔 하늘색 개인 대시보드">
+<meta name="theme-color" content="#e8f3fd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Dashboard">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/cover-sky-cat.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <header class="cover" id="cover">
+    <img id="coverImg" src="assets/cover-sky-cat.jpg" alt="cover">
+    <div class="cover-tint"></div>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1 class="page-title" id="pageTitle" contenteditable="true" spellcheck="false" data-field="title">My Dashboard</h1>
+      <div class="page-head-actions">
+        <button class="ghost-btn" data-act="open-settings" title="꾸미기 설정">🎨 꾸미기</button>
+      </div>
+    </div>
+
+    <div class="quote-bar" id="quoteBar">
+      <span class="quote-stick"></span>
+      <span class="quote-text" id="quoteText" contenteditable="true" spellcheck="false" data-field="quote">“호비랑 서리를 먹여살리기 위한 몸부림”</span>
+    </div>
+
+    <div class="layout">
+      <!-- ─────────── left sidebar ─────────── -->
+      <aside class="sidebar">
+        <section class="block">
+          <h2 class="block-title">NAVIGATION</h2>
+          <nav class="nav-list">
+            <button class="nav-btn" data-act="open-study"><span class="nav-ico">📖</span><span class="nav-label">STUDY</span><span class="nav-arrow">›</span></button>
+            <button class="nav-btn" data-act="open-finance"><span class="nav-ico">🪙</span><span class="nav-label">가계부</span><span class="nav-arrow">›</span></button>
+            <button class="nav-btn" data-act="open-wishlist"><span class="nav-ico">🎀</span><span class="nav-label">Wishlist</span><span class="nav-arrow">›</span></button>
+            <button class="nav-btn" data-act="open-memo"><span class="nav-ico">🕯️</span><span class="nav-label">메모</span><span class="nav-arrow">›</span></button>
+          </nav>
+        </section>
+
+        <section class="block">
+          <h2 class="block-title">D-DAY</h2>
+          <div class="dday-card" id="ddayCard"></div>
+        </section>
+
+        <section class="block">
+          <h2 class="block-title">SIMPLE TODO</h2>
+          <div class="todo-card">
+            <form class="todo-form" id="todoForm" data-act="todo-add">
+              <input id="todoInput" type="text" placeholder="할 일을 적고 Enter" maxlength="80" autocomplete="off">
+              <button type="submit" aria-label="추가">＋</button>
+            </form>
+            <ul class="todo-list" id="todoList"></ul>
+          </div>
+        </section>
+
+        <button class="deco-btn" data-act="open-settings">🎨 꾸미기 설정</button>
+      </aside>
+
+      <!-- ─────────── right main ─────────── -->
+      <div class="main-col">
+        <div class="top-row">
+          <section class="card clock-card">
+            <div class="flip-row">
+              <div class="flip" id="flipHour" data-v="00">00</div>
+              <span class="colon">:</span>
+              <div class="flip" id="flipMin" data-v="00">00</div>
+            </div>
+            <div class="clock-sub">
+              <span class="clock-sec" id="clockSec">00</span><span>초</span>
+              <span class="dot">·</span>
+              <span id="clockWeek">금요일</span>
+            </div>
+          </section>
+
+          <section class="card weather-card" id="weatherCard">
+            <div class="wx-top">
+              <div class="wx-emoji" id="wxIcon">☁️</div>
+              <div class="wx-temp" id="wxTemp">--°</div>
+            </div>
+            <div class="wx-place">인천 · <span id="wxDesc">불러오는 중…</span></div>
+            <div class="wx-extra" id="wxExtra"></div>
+          </section>
+
+          <section class="card cat-card">
+            <div class="cat-photo"><img id="catImg" src="assets/cat-card.jpg" alt="cozy cat"></div>
+            <div class="cat-caption"><span>cozy cat</span><span class="cat-date" id="catDate"></span></div>
+          </section>
+        </div>
+
+        <section class="card cal-card">
+          <div class="cal-head">
+            <div class="cal-title" id="calTitle">2026년 11월</div>
+            <div class="cal-nav">
+              <button class="mini-btn" data-act="cal-prev" aria-label="이전 달">‹</button>
+              <button class="mini-btn wide" data-act="cal-today">오늘</button>
+              <button class="mini-btn" data-act="cal-next" aria-label="다음 달">›</button>
+            </div>
+          </div>
+          <div class="cal-weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+          <div class="cal-grid" id="calGrid"></div>
+          <div class="cal-legend">
+            <span><i class="dotc study"></i>학업·시험</span>
+            <span><i class="dotc personal"></i>개인일정</span>
+            <span><i class="dotc health"></i>건강</span>
+            <span><i class="dotc trip"></i>여행</span>
+            <span><i class="dotc work"></i>알바</span>
+            <span class="legend-money"><i class="dotc spend"></i>지출</span>
+            <span class="legend-money"><i class="dotc plan"></i>예정</span>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <footer class="site-foot">
+      <span class="sync-badge" id="syncBadge">동기화 준비 중…</span>
+      <span class="foot-heart">made with 🤍 for 가연</span>
+    </footer>
+  </main>
+</div>
+
+<!-- ─────────── modal ─────────── -->
+<div class="modal-root" id="modalRoot" hidden>
+  <div class="modal-backdrop" data-act="modal-close"></div>
+  <div class="modal" role="dialog" aria-modal="true" id="modalBox">
+    <div class="modal-grip" data-act="modal-close"></div>
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle">STUDY</div>
+      <button class="modal-close" data-act="modal-close" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>

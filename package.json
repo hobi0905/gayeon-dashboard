@@ -1,0 +1,14 @@
+{
+  "name": "gayeon-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "가연님을 위한 파스텔 하늘색 개인 대시보드 (아이패드 최적화)",
+  "scripts": {
+    "test": "node tests/smoke.test.js && node tests/sync.test.js",
+    "test:smoke": "node tests/smoke.test.js",
+    "test:sync": "node tests/sync.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}
