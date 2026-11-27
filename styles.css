@@ -1018,3 +1018,4 @@ body[data-theme="xmas"] a{color:#a97f3e;}
 /* D-DAY 카드 안 구분 태그는 딥 그린 위에서도 또렷하게 */
 body[data-theme="xmas"] .dday-card .tag{background:rgba(255,255,255,.17);color:#fbf1de;}
 body[data-theme="xmas"] .page-title:empty:before{color:#c2ad8c;}
+body[data-theme="xmas"] .dday-pill small{color:#e6d5b6;}

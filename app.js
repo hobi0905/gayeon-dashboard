@@ -265,8 +265,13 @@ function applyTheme() {
 function switchTheme(next) {
   const prev = themeOf(state);
   if (!THEMES[next] || next === prev) return;
-  if (!state.cover || state.cover === THEMES[prev].cover) state.cover = null;
-  if (!state.cat || state.cat === THEMES[prev].cat) state.cat = null;
+  const oldCoverPresets = prev === 'xmas' ? XMAS_PRESETS.map(p => p.src)
+    : [DEFAULT_COVER, 'assets/photo-sea.jpg', 'assets/photo-cd.jpg', 'assets/cover-cozy-cat.jpg'];
+  const oldCatPresets = prev === 'xmas' ? XMAS_PRESETS.map(p => p.src)
+    : [DEFAULT_CAT, 'assets/photo-sea.jpg', 'assets/photo-cd.jpg', DEFAULT_COVER];
+  /* 테마 프리셋으로 고른 사진은 테마를 따라 바뀌고, 직접 올린 사진은 그대로 둔다 */
+  if (!state.cover || oldCoverPresets.includes(state.cover)) state.cover = null;
+  if (!state.cat || oldCatPresets.includes(state.cat)) state.cat = null;
   state.theme = next;
   commit();
   toast(next === 'xmas' ? '🎄 크리스마스 테마로 바꿨어요' : '🩵 파스텔 하늘 테마로 돌아왔어요');
@@ -342,7 +347,7 @@ function spentOn(dateStr) {
 }
 function subCycleLabel(s) {
   const day = Number(s.day) || 1;
-  return s.cycle === 'yearly' ? `매년 ${Number(s.month) || 1}월 ${day}일` : `매월 ${day}일`;
+  return s.cycle === 'yearly' ? `매년 ${Number(s.month) || 1}월 ${day}일` : `매달 ${day}일`;
 }
 /* 말일 보정 — 매달 31일 결제처럼 그 달에 없는 날짜는 그 달 마지막 날로 */
 function subHitsOn(s, y, m, d) {
@@ -602,7 +607,7 @@ function renderFinanceModal() {
       </div>
       <div class="sec-card">
         <div class="cal-title" style="font-size:13px;color:#8ba3b5;font-family:var(--font-num);margin-bottom:2px">
-          ${finMonth.getFullYear()}년 ${finMonth.getMonth() + 1}월 · 파란 숫자=지출, 주황=예정
+          ${finMonth.getFullYear()}년 ${finMonth.getMonth() + 1}월 · ${themeOf(state) === 'xmas' ? '빨간 숫자=지출, 금색=예정' : '파란 숫자=지출, 주황=예정'}
         </div>
         ${financeCalendar()}
       </div>
