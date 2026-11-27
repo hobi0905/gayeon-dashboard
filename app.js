@@ -516,7 +516,7 @@ function calxDayPanel() {
     </div>
     ${rows.length ? `<div class="row-list">${rows.join('')}</div>` : '<div class="empty">이 날은 비어 있어요</div>'}
     <div class="calx-day-btns">
-      <button class="btn flat" data-act="calx-open-day" data-date="${ds}">이 날 일정 추가 · 메모</button>
+      <button class="btn flat" data-act="calx-open-day" data-date="${ds}">이 날 자세히 보기 · 일정 추가</button>
     </div>
   </div>`;
 }

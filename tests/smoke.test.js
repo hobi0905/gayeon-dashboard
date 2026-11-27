@@ -703,7 +703,7 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.habit-grid \.hn \.hx,\.habit-grid \.hn \.he\{[^}]*opacity:0/.test(css), '습관 수정·삭제 버튼 스타일');
   ok(/\.note-card \.ntag\{/.test(css), '메모 태그 스타일');
   const html2 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  ok(/styles\.css\?v=26/.test(html2) && /app\.js\?v=19/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
+  ok(/styles\.css\?v=26/.test(html2) && /app\.js\?v=20/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
 
   console.log('▸ 큰 상세 캘린더 모달');
   click($('[data-act="modal-close"]'));
