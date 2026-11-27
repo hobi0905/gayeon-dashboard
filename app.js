@@ -17,6 +17,9 @@ const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(3
 const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clampNum = v => { const n = Number(String(v).replace(/[^\d.-]/g, '')); return isFinite(n) ? Math.round(n) : 0; };
+/* 메모 태그 — "12월, 할일" 또는 "#12월 #할일" 어느 쪽으로 써도 알아서 나눈다 */
+const parseTags = v => String(v == null ? '' : v).split(/[,，#]/).map(t => t.trim()).filter(Boolean).slice(0, 8);
+const tagText = tags => (Array.isArray(tags) ? tags : []).join(', ');
 const daysBetween = (a, b) => Math.round((parseISO(b) - parseISO(a)) / 86400000);
 const fmtDateShort = s => { const d = parseISO(s); return `${d.getMonth() + 1}/${d.getDate()}`; };
 const fmtDateKo = s => { const d = parseISO(s); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEK_KO[d.getDay()]})`; };
@@ -211,6 +214,10 @@ function normalize(s) {
   }));
   out.wish = Object.assign({ want: [], need: [] }, s.wish || {});
   out.memo = Object.assign({ diary: [], habits: [], notes: [] }, s.memo || {});
+  /* 메모의 태그는 나중에 붙은 속성 — 예전 메모는 빈 배열로 살린다 */
+  out.memo.notes = (out.memo.notes || []).filter(Boolean).map(n => Object.assign({}, n, {
+    tags: Array.isArray(n.tags) ? parseTags(n.tags.join(',')) : [],
+  }));
   out.events = Array.isArray(s.events) ? s.events : base.events;
   out.todo = Array.isArray(s.todo) ? s.todo : [];
   out.sync = Object.assign({ code: DEFAULT_CODE, enabled: true }, s.sync || {});
@@ -340,6 +347,7 @@ function renderTodo() {
     <li class="todo-item ${t.done ? 'done' : ''}">
       <button class="chk" data-act="todo-toggle" data-id="${t.id}" aria-label="체크">${t.done ? '✓' : ''}</button>
       <span class="t">${esc(t.text)}</span>
+      <button class="edit" data-act="todo-edit" data-id="${t.id}" aria-label="수정" title="수정">✏️</button>
       <button class="del" data-act="todo-del" data-id="${t.id}" aria-label="삭제">✕</button>
     </li>`).join('');
 }
@@ -523,7 +531,8 @@ function goalSection(scope) {
       <div class="check-row ${i.done ? 'done' : ''}">
         <button class="chk" data-act="goal-toggle" data-scope="${scope}" data-id="${i.id}">${i.done ? '✓' : ''}</button>
         <span class="txt">${esc(i.text)}</span>
-        <button class="icon-x" data-act="goal-del" data-scope="${scope}" data-id="${i.id}">✕</button>
+        <button class="icon-x" data-act="goal-edit" data-scope="${scope}" data-id="${i.id}" title="수정">✏️</button>
+        <button class="icon-x" data-act="goal-del" data-scope="${scope}" data-id="${i.id}" title="삭제">✕</button>
       </div>`).join('')}</div>` : `<div class="empty">아직 비어 있어요 · 작게 하나 적어볼까요?</div>`}
     <form class="add-form inline" data-form="goal" data-scope="${scope}">
       <input class="in grow" name="text" maxlength="80" placeholder="${meta.ph}" autocomplete="off">
@@ -619,7 +628,8 @@ function finDayPanel() {
         ${isIncome(e) ? '<span class="tag income">수입</span>' : ''}
         <span class="grow">${esc(e.title)} <span class="muted">${esc(e.cat || '기타')}${e.memo ? ' · ' + esc(e.memo) : ''}</span></span>
         <span class="dday-pill ${isIncome(e) ? 'income' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
-        <button class="icon-x" data-act="exp-del" data-id="${e.id}">✕</button>
+        <button class="icon-x" data-act="exp-edit" data-id="${e.id}" title="수정">✏️</button>
+        <button class="icon-x" data-act="exp-del" data-id="${e.id}" title="삭제">✕</button>
       </div>`).join('')}</div>` : '<div class="empty">이 날 쓴 내역이 없어요</div>'}
     ${plans.length ? `<div class="row-list">${plans.map(p => `
       <div class="drow" style="border-style:dashed">
@@ -823,7 +833,8 @@ function renderMemoModal() {
         <div class="diary-row">
           <span class="sq">${esc(d.mood || '🤍')}</span>
           <span class="grow"><span class="dt">${fmtDateKo(d.date)}</span><br><span class="tx">${esc(d.text)}</span></span>
-          <button class="icon-x" data-act="diary-del" data-id="${d.id}">✕</button>
+          <button class="icon-x" data-act="diary-edit" data-id="${d.id}" title="수정">✏️</button>
+          <button class="icon-x" data-act="diary-del" data-id="${d.id}" title="삭제">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">오늘의 기분을 이모지로 남겨보세요</div>'}
     </section>
 
@@ -832,7 +843,7 @@ function renderMemoModal() {
       <div class="sec-card">
         ${habits.length ? `<div class="habit-grid">
           <span></span>${week.map(d => `<span class="hd">${WEEK_KO[parseISO(d).getDay()]}</span>`).join('')}
-          ${habits.map(h => `<span class="hn" title="${esc(h.name)}"><span>${esc(h.name)}</span><button class="icon-x hx" data-act="habit-del" data-id="${h.id}" aria-label="습관 삭제">✕</button></span>${week.map(d => {
+          ${habits.map(h => `<span class="hn" title="${esc(h.name)}"><span>${esc(h.name)}</span><button class="icon-x he" data-act="habit-edit" data-id="${h.id}" aria-label="습관 수정">✏️</button><button class="icon-x hx" data-act="habit-del" data-id="${h.id}" aria-label="습관 삭제">✕</button></span>${week.map(d => {
             const on = !!(h.log && h.log[d]);
             const future = d > today;
             return `<button class="h-cell ${on ? 'on' : ''} ${d === today ? 'today' : ''} ${future ? 'future' : ''}" data-act="habit-toggle" data-id="${h.id}" data-date="${d}">${on ? '✓' : ''}</button>`;
@@ -850,6 +861,7 @@ function renderMemoModal() {
       ${notes.length ? notes.map(n => `
         <div class="note-card">
           <h4>${esc(n.title || '제목 없음')}</h4>
+          ${(n.tags && n.tags.length) ? `<div class="ntags">${n.tags.map(t => `<span class="ntag">#${esc(t)}</span>`).join('')}</div>` : ''}
           <p>${esc(n.body)}</p>
           <div class="nfoot">
             <span>${n.updated ? new Date(n.updated).toLocaleDateString('ko-KR') : ''}</span>
@@ -859,6 +871,7 @@ function renderMemoModal() {
         </div>`).join('') : '<div class="empty">자유롭게 적는 메모 카드가 여기 쌓여요</div>'}
       <form class="add-form" data-form="note">
         ${F_CELL('제목', '<input class="in" name="title" placeholder="예: 12월에 할 일" maxlength="60">', 'full')}
+        ${F_CELL(`태그 ${F_OPT}`, '<input class="in" name="tags" placeholder="쉼표로 구분 · 예: 12월, 할일" maxlength="60">', 'full')}
         ${F_CELL('내용', '<textarea class="in" name="body" rows="3" placeholder="자유롭게 적어두세요" maxlength="2000"></textarea>', 'full')}
         <button class="btn primary" type="submit">추가</button>
       </form>
@@ -901,7 +914,8 @@ function renderDayModal(dateStr) {
           ${isIncome(e) ? '<span class="tag income">수입</span>' : ''}
           <span class="grow">${esc(e.title)} <span class="muted">${esc(e.cat || '기타')}${e.memo ? ' · ' + esc(e.memo) : ''}</span></span>
           <span class="dday-pill ${isIncome(e) ? 'income' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
-          <button class="icon-x" data-act="exp-del" data-id="${e.id}">✕</button>
+          <button class="icon-x" data-act="exp-edit" data-id="${e.id}" title="수정">✏️</button>
+          <button class="icon-x" data-act="exp-del" data-id="${e.id}" title="삭제">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">아직 기록이 없어요</div>'}
       ${plans.length ? `<div class="row-list">${plans.map(p => `
         <div class="drow" style="border-style:dashed">
@@ -1195,15 +1209,21 @@ function askPrompt(opts) {
       const attrs = `name="${esc(f.key)}" ${f.inputmode ? `inputmode="${esc(f.inputmode)}"` : ''}`;
       if (f.type === 'select') return `<select class="in" ${attrs}>${(f.options || []).map(o => `<option ${o === f.value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
       if (f.type === 'date') return `<span class="date-shell is-empty" data-ph="날짜 선택"><input class="in" type="date" ${attrs} value="${esc(f.value == null ? '' : f.value)}"></span>`;
+      if (f.type === 'textarea') return `<textarea class="in" ${attrs} rows="${Number(f.rows) || 3}" placeholder="${esc(f.placeholder || '')}" maxlength="${Number(f.maxlength) || 2000}">${esc(f.value == null ? '' : f.value)}</textarea>`;
       return `<input class="in" ${attrs} type="${esc(f.type || 'text')}" value="${esc(f.value == null ? '' : f.value)}" placeholder="${esc(f.placeholder || '')}">`;
+    };
+    /* 날짜·소태그·본문은 폭을 다 잡고, 나머지는 두 칸 그리드에 놓는다 */
+    const fieldHtml = f => {
+      const wide = f.full || f.type === 'date' || f.type === 'textarea';
+      return `<label class="pf${f.type === 'date' ? ' date' : ''}${wide ? ' full' : ''}">
+        <span>${esc(f.label || '')}</span>
+        ${control(f)}
+      </label>`;
     };
     wrap.innerHTML = `<div class="prompt-box">
       <h4>${esc(opts.title || '')}</h4>
       ${opts.message ? `<p>${esc(opts.message)}</p>` : ''}
-      ${(opts.fields || []).map(f => `<label class="pf${f.type === 'date' ? ' date' : ''}">
-        <span>${esc(f.label || '')}</span>
-        ${control(f)}
-      </label>`).join('')}
+      <div class="pf-grid">${(opts.fields || []).map(fieldHtml).join('')}</div>
       <div class="row">
         <button class="btn flat" data-x="cancel">취소</button>
         <button class="btn primary" data-x="ok">${esc(opts.confirmText || '확인')}</button>
@@ -1221,8 +1241,21 @@ function askPrompt(opts) {
       (opts.fields || []).forEach(f => { const el = wrap.querySelector(`[name="${f.key}"]`); out[f.key] = el ? el.value : ''; });
       done(out);
     });
-    wrap.addEventListener('keydown', ev => { if (ev.key === 'Enter') { const ok = wrap.querySelector('[data-x="ok"]'); if (ok) ok.click(); } });
-    const first = wrap.querySelector('input,select'); if (first) setTimeout(() => first.focus(), 60);
+    /* 다른 칸 값에 따라 목록·안내가 바뀔 때 (예: 지출/수입 → 카테고리) */
+    wrap.addEventListener('change', ev => {
+      const el = ev.target.closest && ev.target.closest('[name]');
+      if (!el || !opts.onChange) return;
+      opts.onChange(el.name, el.value, wrap);
+    });
+    wrap.addEventListener('keydown', ev => {
+      if (ev.key !== 'Enter') return;
+      /* 여러 줄 본문에서는 Enter가 줄바꿈이어야 한다 */
+      if (ev.target && ev.target.tagName === 'TEXTAREA' && !ev.ctrlKey && !ev.metaKey) return;
+      const ok = wrap.querySelector('[data-x="ok"]'); if (ok) ok.click();
+    });
+    /* 날짜 칸이 먼저 있어도 자동으로 달력이 열리지 않게 날짜가 아닌 칸을 먼저 잡는다 */
+    const first = wrap.querySelector('input:not([type="date"]),select,textarea') || wrap.querySelector('input');
+    if (first) setTimeout(() => first.focus(), 60);
   });
 }
 
@@ -1309,7 +1342,7 @@ const FORMS = {
   note(form) {
     const title = fv(form, 'title'), body = fv(form, 'body');
     if (!title && !body) return;
-    state.memo.notes.push({ id: uid(), title: title || '제목 없음', body, updated: Date.now() });
+    state.memo.notes.push({ id: uid(), title: title || '제목 없음', body, tags: parseTags(fv(form, 'tags')), updated: Date.now() });
     commit();
   },
   event(form) {
@@ -1394,6 +1427,18 @@ document.addEventListener('click', async ev => {
       const it = state.todo.find(x => x.id === id); if (it) { it.done = !it.done; commit(); } break;
     }
     case 'todo-del': state.todo = state.todo.filter(x => x.id !== id); commit(); break;
+    case 'todo-edit': {
+      const it = state.todo.find(x => x.id === id); if (!it) break;
+      const r = await askPrompt({
+        title: 'TO-DO 수정',
+        fields: [{ key: 'text', label: '할 일', value: it.text, full: true }],
+        confirmText: '저장',
+      });
+      if (!r) break;
+      const text = (r.text || '').trim();
+      if (!text) { toast('할 일을 채워주세요'); break; }
+      it.text = text; commit(); break;
+    }
 
     /* study goals */
     case 'goal-toggle': {
@@ -1403,6 +1448,19 @@ document.addEventListener('click', async ev => {
     case 'goal-del': {
       const scope = t.dataset.scope;
       state.study[scope] = state.study[scope].filter(x => x.id !== id); commit(); break;
+    }
+    case 'goal-edit': {
+      const scope = t.dataset.scope;
+      const it = (state.study[scope] || []).find(x => x.id === id); if (!it) break;
+      const r = await askPrompt({
+        title: `${GOAL_META[scope].label} 수정`,
+        fields: [{ key: 'text', label: '목표', value: it.text, full: true }],
+        confirmText: '저장',
+      });
+      if (!r) break;
+      const text = (r.text || '').trim();
+      if (!text) { toast('목표를 채워주세요'); break; }
+      it.text = text; commit(); break;
     }
     case 'exam-del': state.study.exams = state.study.exams.filter(x => x.id !== id); commit(); break;
     case 'exam-edit': {
@@ -1424,6 +1482,48 @@ document.addEventListener('click', async ev => {
 
     /* finance */
     case 'exp-del': state.finance.expenses = state.finance.expenses.filter(x => x.id !== id); commit(); break;
+    case 'exp-edit': {
+      const e = state.finance.expenses.find(x => x.id === id); if (!e) break;
+      const income0 = isIncome(e);
+      const cats0 = income0 ? INCOME_CATS : EXPENSE_CATS;
+      const r = await askPrompt({
+        title: '내역 수정',
+        fields: [
+          { key: 'date', label: '날짜', type: 'date', value: e.date },
+          { key: 'type', label: '종류', type: 'select', options: ['지출', '수입'], value: income0 ? '수입' : '지출' },
+          { key: 'cat', label: '카테고리', type: 'select', options: cats0, value: cats0.includes(e.cat) ? e.cat : '기타' },
+          { key: 'title', label: '내역', value: e.title, full: true },
+          { key: 'amount', label: '금액', value: amtOf(e), inputmode: 'numeric' },
+          { key: 'memo', label: '메모 (선택)', value: e.memo || '' },
+        ],
+        confirmText: '저장',
+        /* 지출 ↔ 수입을 바꾸면 카테고리 목록이 그 종류에 맞춰 통째로 바뀐다 */
+        onChange: (key, val, wrap) => {
+          if (key !== 'type') return;
+          const catSel = wrap.querySelector('[name="cat"]');
+          if (!catSel) return;
+          const cats = val === '수입' ? INCOME_CATS : EXPENSE_CATS;
+          const cur = catSel.value;
+          catSel.innerHTML = catOptionHtml(cats, cats.includes(cur) ? cur : '기타');
+          wrap.classList.toggle('is-income', val === '수입');
+        },
+      });
+      if (!r) break;
+      const type = r.type === '수입' ? 'income' : 'expense';
+      const cats = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
+      const cat = cats.includes(r.cat) ? r.cat : '기타';
+      const amount = clampNum(r.amount);
+      Object.assign(e, {
+        date: r.date || e.date,
+        type,
+        title: (r.title || '').trim() || e.title,
+        amount: amount || amtOf(e),
+        cat,
+        memo: (r.memo || '').trim(),
+      });
+      commit(); toast('내역을 수정했어요');
+      break;
+    }
     case 'sub-toggle': { const s = state.finance.subs.find(x => x.id === id); if (s) { s.active = !s.active; commit(); } break; }
     case 'sub-del': state.finance.subs = state.finance.subs.filter(x => x.id !== id); commit(); break;
     case 'sub-edit': {
@@ -1568,6 +1668,28 @@ document.addEventListener('click', async ev => {
       break;
     }
     case 'diary-del': state.memo.diary = state.memo.diary.filter(x => x.id !== id); commit(); break;
+    case 'diary-edit': {
+      const d = state.memo.diary.find(x => x.id === id); if (!d) break;
+      const r = await askPrompt({
+        title: '한줄일기 수정',
+        fields: [
+          { key: 'date', label: '날짜', type: 'date', value: d.date },
+          { key: 'mood', label: '기분', type: 'select', options: MOODS, value: d.mood || '🤍' },
+          { key: 'text', label: '내용', type: 'textarea', rows: 3, value: d.text, maxlength: 140 },
+        ],
+        confirmText: '저장',
+      });
+      if (!r) break;
+      const text = (r.text || '').trim();
+      if (!text) { toast('내용을 채워주세요'); break; }
+      const date = r.date || d.date;
+      /* 하루에 한 줄 — 다른 날짜로 옴기려는 날에 이미 일기가 있으면 덮어쓰지 않고 알려준다 */
+      if (state.memo.diary.some(x => x.id !== d.id && x.date === date)) {
+        toast('그 날짜에 이미 한줄일기가 있어요 · 다른 날로 골라주세요'); break;
+      }
+      Object.assign(d, { date, mood: r.mood || '🤍', text });
+      commit(); break;
+    }
     case 'habit-toggle': {
       const h = state.memo.habits.find(x => x.id === id); if (!h) break;
       h.log = h.log || {};
@@ -1576,18 +1698,33 @@ document.addEventListener('click', async ev => {
       commit(); break;
     }
     case 'habit-del': state.memo.habits = state.memo.habits.filter(x => x.id !== id); commit(); break;
+    case 'habit-edit': {
+      const h = state.memo.habits.find(x => x.id === id); if (!h) break;
+      const r = await askPrompt({
+        title: '습관·루틴 수정',
+        fields: [{ key: 'name', label: '이름', value: h.name, full: true }],
+        confirmText: '저장',
+      });
+      if (!r) break;
+      const name = (r.name || '').trim();
+      if (!name) { toast('이름을 채워주세요'); break; }
+      /* 이름만 바꾸고 지난 체크 기록(h.log)은 그대로 둔다 */
+      h.name = name; commit(); break;
+    }
     case 'note-del': state.memo.notes = state.memo.notes.filter(x => x.id !== id); commit(); break;
     case 'note-edit': {
       const n = state.memo.notes.find(x => x.id === id); if (!n) break;
       const r = await askPrompt({
         title: '메모 수정',
         fields: [
-          { key: 'title', label: '제목', value: n.title },
-          { key: 'body', label: '내용', value: n.body },
+          { key: 'title', label: '제목', value: n.title, full: true },
+          { key: 'tags', label: '태그 (쉼표로 구분)', value: tagText(n.tags), full: true },
+          { key: 'body', label: '내용', type: 'textarea', rows: 5, value: n.body, maxlength: 2000 },
         ], confirmText: '저장',
       });
       if (!r) break;
-      Object.assign(n, { title: r.title.trim() || n.title, body: r.body.trim(), updated: Date.now() });
+      const title = (r.title || '').trim();
+      Object.assign(n, { title: title || '제목 없음', body: (r.body || '').trim(), tags: parseTags(r.tags), updated: Date.now() });
       commit(); break;
     }
 
