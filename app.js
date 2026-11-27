@@ -22,6 +22,23 @@ const fmtDateShort = s => { const d = parseISO(s); return `${d.getMonth() + 1}/$
 const fmtDateKo = s => { const d = parseISO(s); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEK_KO[d.getDay()]})`; };
 const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
 
+/* ───────────── form cells ───────────── */
+/* 칸 하나 = 위에 작은 라벨 + 아래 입력. 폭은 폼 그리드가 나눠 갖고,
+   날짜 칸은 값이 비어 있을 때 '날짜 선택' 같은 안내를 칸 안에 보여준다(iOS는 빈 date가 그냥 흰 네모). */
+const F_CELL = (label, control, cls = '') =>
+  `<label class="fld${cls ? ' ' + cls : ''}"><span>${label}</span>${control}</label>`;
+const F_DATE = (label, attrs, cls = '', ph = '날짜 선택') =>
+  `<label class="fld date${cls ? ' ' + cls : ''}"><span>${label}</span>` +
+  `<span class="date-shell is-empty" data-ph="${esc(ph)}"><input class="in" type="date" ${attrs}></span></label>`;
+const F_OPT = '<small>(선택)</small>';
+/* 빈 날짜 칸 안내 문구를 값에 맞춰 켜고 끈다 */
+function syncDateShells(root) {
+  $$('.date-shell', root || document).forEach(s => {
+    const i = s.querySelector('input');
+    if (i) s.classList.toggle('is-empty', !i.value);
+  });
+}
+
 /* ───────────── seed ───────────── */
 const SEED_EVENTS = [
   ['컴활접수', '2026-11-28', null, null, null, 'study'],
@@ -127,6 +144,10 @@ function purgeRetiredSeeds(s) {
   }
   return changed;
 }
+
+/* 빈 날짜 칸 안내 문구는 iOS 사파리에서만 쓴다 — 다른 브라우저는 자체 placeholder가 있다 */
+const IS_IOS = /iP(hone|ad|od)/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (IS_IOS) document.body.classList.add('ios');
 
 function seedState() {
   return {
@@ -363,10 +384,10 @@ function incomeOn(dateStr) {
 }
 function moneyFormHtml(dateStr) {
   return `<form class="add-form money-form" data-form="expense" data-date="${dateStr}">
-      <input class="in grow" name="title" placeholder="내역 (예: 점심 김밥)" maxlength="50" required>
-      <input class="in num" name="amount" inputmode="numeric" placeholder="금액" required>
-      <select class="in money-type" name="type" aria-label="종류"><option value="expense">지출</option><option value="income">수입</option></select>
-      <select class="in money-cat" name="cat" aria-label="카테고리">${catOptionHtml(EXPENSE_CATS)}</select>
+      ${F_CELL('내역', '<input class="in" name="title" placeholder="예: 점심 김밥" maxlength="50" autocomplete="off" required>', 'w2')}
+      ${F_CELL('금액', '<input class="in num" name="amount" inputmode="numeric" placeholder="0" required>')}
+      ${F_CELL('종류', `<select class="in money-type" name="type" aria-label="종류"><option value="expense">지출</option><option value="income">수입</option></select>`)}
+      ${F_CELL('카테고리', `<select class="in money-cat" name="cat" aria-label="카테고리">${catOptionHtml(EXPENSE_CATS)}</select>`, 'w2')}
       <button class="btn primary" type="submit">추가</button>
     </form>`;
 }
@@ -473,6 +494,7 @@ function renderModal() {
   const body = $('#modalBody');
   const scroll = body.scrollTop;
   body.innerHTML = cfg.render(openModalArg);
+  syncDateShells(body);
   body.scrollTop = scroll;
 }
 
@@ -502,7 +524,7 @@ function goalSection(scope) {
         <span class="txt">${esc(i.text)}</span>
         <button class="icon-x" data-act="goal-del" data-scope="${scope}" data-id="${i.id}">✕</button>
       </div>`).join('')}</div>` : `<div class="empty">아직 비어 있어요 · 작게 하나 적어볼까요?</div>`}
-    <form class="add-form" data-form="goal" data-scope="${scope}">
+    <form class="add-form inline" data-form="goal" data-scope="${scope}">
       <input class="in grow" name="text" maxlength="80" placeholder="${meta.ph}" autocomplete="off">
       <button class="btn primary" type="submit">추가</button>
     </form>
@@ -533,10 +555,10 @@ function renderStudyModal() {
           </div>`;
         }).join('')}</div>` : '<div class="empty">아직 등록된 시험이 없어요</div>'}
         <form class="add-form" data-form="exam">
-          <input class="in grow" name="name" placeholder="시험·지원 이름" maxlength="60" autocomplete="off" required>
-          <input class="in date" type="date" name="date" required>
-          <select class="in" name="type">${EXAM_TYPES.map(t => `<option>${esc(t)}</option>`).join('')}</select>
-          <input class="in grow" name="memo" placeholder="메모 (선택)" maxlength="60">
+          ${F_CELL('시험·지원 이름', '<input class="in" name="name" placeholder="예: ADsP 시험" maxlength="60" autocomplete="off" required>', 'w2')}
+          ${F_DATE('날짜', 'name="date" required')}
+          ${F_CELL('구분', `<select class="in" name="type">${EXAM_TYPES.map(t => `<option>${esc(t)}</option>`).join('')}</select>`)}
+          ${F_CELL(`메모 ${F_OPT}`, '<input class="in" name="memo" placeholder="예: 14:50 부평상공회의소" maxlength="60">', 'w2')}
           <button class="btn primary" type="submit">추가</button>
         </form>
       </div>
@@ -664,10 +686,10 @@ function renderFinanceModal() {
         </div>`;
       }).join('') : '<div class="empty">목표를 세워보면 진행률이 여기에 차곡차곡 쌓여요</div>'}
       <form class="add-form" data-form="fgoal">
-        <input class="in grow" name="name" placeholder="목표 이름 (예: 비상금 300만)" maxlength="40" required>
-        <input class="in num" name="target" inputmode="numeric" placeholder="목표금액" required>
-        <input class="in num" name="saved" inputmode="numeric" placeholder="현재모은금액">
-        <input class="in date" type="date" name="deadline">
+        ${F_CELL('목표 이름', '<input class="in" name="name" placeholder="예: 비상금 300만" maxlength="40" required>', 'w2')}
+        ${F_CELL('목표 금액', '<input class="in num" name="target" inputmode="numeric" placeholder="0" required>')}
+        ${F_CELL(`현재 모은 금액 ${F_OPT}`, '<input class="in num" name="saved" inputmode="numeric" placeholder="0">')}
+        ${F_DATE(`기한 ${F_OPT}`, 'name="deadline"')}
         <button class="btn primary" type="submit">추가</button>
       </form>
     </section>
@@ -682,9 +704,9 @@ function renderFinanceModal() {
           <button class="icon-x" data-act="invest-del" data-id="${v.id}">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">관심 종목·주제를 메모처럼 모아둘 수 있어요</div>'}
       <form class="add-form" data-form="invest">
-        <input class="in grow" name="name" placeholder="종목·주제" maxlength="40" required>
-        <select class="in" name="stance"><option>관망</option><option>매수검토</option><option>보유</option></select>
-        <input class="in grow" name="memo" placeholder="메모" maxlength="80">
+        ${F_CELL('종목·주제', '<input class="in" name="name" placeholder="예: 배당주 ETF" maxlength="40" required>', 'w2')}
+        ${F_CELL('판단', '<select class="in" name="stance"><option>관망</option><option>매수검토</option><option>보유</option></select>')}
+        ${F_CELL(`메모 ${F_OPT}`, '<input class="in" name="memo" placeholder="왜 관심을 갖게 됐는지" maxlength="80">', 'full')}
         <button class="btn primary" type="submit">추가</button>
       </form>
     </section>
@@ -700,11 +722,11 @@ function renderFinanceModal() {
           <button class="icon-x" data-act="sub-del" data-id="${s.id}">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">활성 구독은 결제일마다 캘린더에 예정 금액으로 자동 표시돼요</div>'}
       <form class="add-form" data-form="sub">
-        <input class="in grow" name="name" placeholder="서비스명 (예: 유튜브 프리미엄)" maxlength="40" required>
-        <input class="in num" name="amount" inputmode="numeric" placeholder="금액" required>
-        <select class="in cycle-select" name="cycle"><option value="monthly">매달</option><option value="yearly">매년</option></select>
-        <select class="in sub-month" name="month">${monthOptions(1)}</select>
-        <select class="in sub-day" name="day">${dayOptions(1)}</select>
+        ${F_CELL('서비스명', '<input class="in" name="name" placeholder="예: 유튜브 프리미엄" maxlength="40" required>', 'w2')}
+        ${F_CELL('금액', '<input class="in num" name="amount" inputmode="numeric" placeholder="0" required>')}
+        ${F_CELL('주기', '<select class="in cycle-select" name="cycle"><option value="monthly">매달</option><option value="yearly">매년</option></select>')}
+        <label class="fld month"><span>월</span><select class="in sub-month" name="month">${monthOptions(1)}</select></label>
+        <label class="fld day"><span>결제일</span><select class="in sub-day" name="day">${dayOptions(1)}</select></label>
         <button class="btn primary" type="submit">추가</button>
       </form>
       <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 = 매월 그 날, 매년 = 그 달·그 날에만 예정 지출로 표시돼요. 31일처럼 없는 날은 그 달 말일로 맞춰줘요.</div>
@@ -735,10 +757,10 @@ function renderWishModal() {
           <button class="icon-x" data-act="want-del" data-id="${w.id}">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">갖고 싶은 걸 편하게 적어두세요 🤍</div>'}
       <form class="add-form" data-form="want">
-        <input class="in grow" name="name" placeholder="품목" maxlength="50" required>
-        <input class="in num" name="price" inputmode="numeric" placeholder="예상 가격">
-        <input class="in grow" name="link" placeholder="링크 (선택)" maxlength="300">
-        <input class="in grow" name="memo" placeholder="메모" maxlength="80">
+        ${F_CELL('품목', '<input class="in" name="name" placeholder="예: 노이즈캔슬링 이어폰" maxlength="50" required>', 'w2')}
+        ${F_CELL(`예상 가격 ${F_OPT}`, '<input class="in num" name="price" inputmode="numeric" placeholder="0">')}
+        ${F_CELL('메모', '<input class="in" name="memo" placeholder="색상·사이즈" maxlength="80">')}
+        ${F_CELL(`링크 ${F_OPT}`, '<input class="in" name="link" placeholder="https://" maxlength="300">', 'w2')}
         <button class="btn primary" type="submit">추가</button>
       </form>
     </section>
@@ -761,8 +783,8 @@ function renderWishModal() {
           <button class="icon-x" data-act="need-del" data-id="${n.id}">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">사야 하는 물건을 모아두면 구매 예정일을 잡아 가계부에 바로 넣을 수 있어요</div>'}
       <form class="add-form" data-form="need">
-        <input class="in grow" name="name" placeholder="품목" maxlength="50" required>
-        <input class="in num" name="price" inputmode="numeric" placeholder="가격">
+        ${F_CELL('품목', '<input class="in" name="name" placeholder="예: 세탁세제" maxlength="50" required>', 'w2')}
+        ${F_CELL(`가격 ${F_OPT}`, '<input class="in num" name="price" inputmode="numeric" placeholder="0">')}
         <button class="btn primary" type="submit">추가</button>
       </form>
     </section>`;
@@ -791,7 +813,7 @@ function renderMemoModal() {
         <div class="mood-row">
           ${MOODS.map(m => `<button class="mood-btn ${todayEntry && todayEntry.mood === m ? 'on' : ''}" data-act="mood" data-mood="${m}">${m}</button>`).join('')}
         </div>
-        <form class="add-form" data-form="diary">
+        <form class="add-form inline" data-form="diary">
           <input class="in grow" name="text" maxlength="140" placeholder="오늘 한 줄 (${fmtDateKo(today)})" value="${todayEntry ? esc(todayEntry.text) : ''}" autocomplete="off">
           <button class="btn primary" type="submit">${todayEntry ? '수정' : '저장'}</button>
         </form>
@@ -815,7 +837,7 @@ function renderMemoModal() {
             return `<button class="h-cell ${on ? 'on' : ''} ${d === today ? 'today' : ''} ${future ? 'future' : ''}" data-act="habit-toggle" data-id="${h.id}" data-date="${d}">${on ? '✓' : ''}</button>`;
           }).join('')}`).join('')}
         </div>` : '<div class="empty">지키고 싶은 루틴을 추가하고 매일 체크해보세요</div>'}
-        <form class="add-form" data-form="habit">
+        <form class="add-form inline" data-form="habit">
           <input class="in grow" name="name" maxlength="30" placeholder="예: 물 2L 마시기" autocomplete="off">
           <button class="btn primary" type="submit">추가</button>
         </form>
@@ -835,8 +857,8 @@ function renderMemoModal() {
           </div>
         </div>`).join('') : '<div class="empty">자유롭게 적는 메모 카드가 여기 쌓여요</div>'}
       <form class="add-form" data-form="note">
-        <input class="in" name="title" placeholder="제목" maxlength="60">
-        <input class="in grow" name="body" placeholder="내용" maxlength="2000">
+        ${F_CELL('제목', '<input class="in" name="title" placeholder="예: 12월에 할 일" maxlength="60">', 'full')}
+        ${F_CELL('내용', '<textarea class="in" name="body" rows="3" placeholder="자유롭게 적어두세요" maxlength="2000"></textarea>', 'full')}
         <button class="btn primary" type="submit">추가</button>
       </form>
     </section>`;
@@ -864,9 +886,9 @@ function renderDayModal(dateStr) {
         </div>`).join('')}
       </div>` : '<div class="empty">이 날은 비어 있어요 · 아래에서 일정을 추가할 수 있어요</div>'}
       <form class="add-form" data-form="event" data-date="${ds}">
-        <input class="in grow" name="title" placeholder="일정 이름" maxlength="60" required>
-        <input class="in time" type="time" name="start">
-        <select class="in" name="category">${CATS.map(c => `<option value="${c}">${CAT_LABEL[c]}</option>`).join('')}</select>
+        ${F_CELL('일정 이름', '<input class="in" name="title" placeholder="예: 치과 예약" maxlength="60" required>', 'full')}
+        ${F_CELL(`시간 ${F_OPT}`, '<input class="in time" type="time" name="start">')}
+        ${F_CELL('구분', `<select class="in" name="category">${CATS.map(c => `<option value="${c}">${CAT_LABEL[c]}</option>`).join('')}</select>`, 'w2')}
         <button class="btn primary" type="submit">추가</button>
       </form>
     </section>
@@ -916,7 +938,7 @@ function renderSettingsModal() {
         <h4>🖼 상단 커버</h4>
         <img class="thumb" src="${esc(state.cover || themeCover(curTheme))}" alt="cover">
         ${presetRow('cover', COVER_PRESETS, state.cover || themeCover(curTheme))}
-        <div class="add-form">
+        <div class="add-form btn-row">
           <button class="btn" data-act="pick-cover">내 사진 올리기</button>
           <button class="btn flat" data-act="reset-cover">기본으로</button>
         </div>
@@ -926,7 +948,7 @@ function renderSettingsModal() {
         <h4>🐱 고양이 카드</h4>
         <img class="thumb arch" src="${esc(state.cat || (THEMES[curTheme] || THEMES.sky).cat)}" alt="cat">
         ${presetRow('cat', CAT_PRESETS, state.cat || (THEMES[curTheme] || THEMES.sky).cat)}
-        <div class="add-form">
+        <div class="add-form btn-row">
           <button class="btn" data-act="pick-cat">사진 바꾸기</button>
           <button class="btn flat" data-act="reset-cat">기본으로</button>
         </div>
@@ -938,7 +960,7 @@ function renderSettingsModal() {
           <img class="avatar big" id="avatarPreview" src="${esc(state.avatar || DEFAULT_AVATAR)}" alt="프로필">
           <div class="hint">상단 제목 옆에 보이는 동그란 사진이에요. 하치와레 고양이가 기본값!</div>
         </div>
-        <div class="add-form">
+        <div class="add-form btn-row">
           <button class="btn" data-act="pick-avatar">프로필 사진 올리기</button>
           <button class="btn flat" data-act="reset-avatar">기본으로</button>
         </div>
@@ -949,8 +971,8 @@ function renderSettingsModal() {
       <div class="sec-head"><h3><span class="em">✍️</span>제목 · 인용구</h3></div>
       <div class="sec-card">
         <div class="add-form">
-          <input class="in grow" id="setTitle" value="${esc(state.title)}" placeholder="제목" maxlength="40">
-          <input class="in grow" id="setQuote" value="${esc(state.quote)}" placeholder="인용구" maxlength="80">
+          ${F_CELL('제목', `<input class="in" id="setTitle" value="${esc(state.title)}" placeholder="My Dashboard" maxlength="40">`, 'full')}
+          ${F_CELL('인용구', `<input class="in" id="setQuote" value="${esc(state.quote)}" placeholder="짧은 문장 하나" maxlength="80">`, 'full')}
           <button class="btn primary" data-act="save-hero-text">저장</button>
         </div>
         <div class="hint">홈 화면에서 제목과 인용구를 직접 눌러 고쳐도 바로 저장돼요.</div>
@@ -964,7 +986,7 @@ function renderSettingsModal() {
           <span class="code ${state.sync.enabled ? '' : 'blur'}" id="codeView">${esc(code)}</span>
           <button class="btn tiny" data-act="copy-code">복사</button>
         </div>
-        <div class="add-form">
+        <div class="add-form btn-row">
           <button class="btn" data-act="sync-now">지금 동기화</button>
           <button class="btn" data-act="join-code">다른 기기 코드 입력</button>
           <button class="btn flat" data-act="new-code">새 코드 만들기</button>
@@ -977,7 +999,7 @@ function renderSettingsModal() {
     <section class="sec">
       <div class="sec-head"><h3><span class="em">💾</span>데이터</h3></div>
       <div class="sec-card">
-        <div class="add-form">
+        <div class="add-form btn-row">
           <button class="btn" data-act="export-json">JSON 내보내기</button>
           <button class="btn" data-act="import-json">JSON 불러오기</button>
           <button class="btn flat" data-act="reset-all">전체 초기화</button>
@@ -1168,14 +1190,18 @@ function askPrompt(opts) {
   return new Promise(resolve => {
     const wrap = document.createElement('div');
     wrap.className = 'prompt';
+    const control = f => {
+      const attrs = `name="${esc(f.key)}" ${f.inputmode ? `inputmode="${esc(f.inputmode)}"` : ''}`;
+      if (f.type === 'select') return `<select class="in" ${attrs}>${(f.options || []).map(o => `<option ${o === f.value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+      if (f.type === 'date') return `<span class="date-shell is-empty" data-ph="날짜 선택"><input class="in" type="date" ${attrs} value="${esc(f.value == null ? '' : f.value)}"></span>`;
+      return `<input class="in" ${attrs} type="${esc(f.type || 'text')}" value="${esc(f.value == null ? '' : f.value)}" placeholder="${esc(f.placeholder || '')}">`;
+    };
     wrap.innerHTML = `<div class="prompt-box">
       <h4>${esc(opts.title || '')}</h4>
       ${opts.message ? `<p>${esc(opts.message)}</p>` : ''}
-      ${(opts.fields || []).map(f => `<label class="pf">
+      ${(opts.fields || []).map(f => `<label class="pf${f.type === 'date' ? ' date' : ''}">
         <span>${esc(f.label || '')}</span>
-        ${f.type === 'select'
-          ? `<select class="in" name="${esc(f.key)}">${(f.options || []).map(o => `<option ${o === f.value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`
-          : `<input class="in" name="${esc(f.key)}" type="${esc(f.type || 'text')}" value="${esc(f.value == null ? '' : f.value)}" placeholder="${esc(f.placeholder || '')}" ${f.inputmode ? `inputmode="${esc(f.inputmode)}"` : ''}>`}
+        ${control(f)}
       </label>`).join('')}
       <div class="row">
         <button class="btn flat" data-x="cancel">취소</button>
@@ -1183,6 +1209,7 @@ function askPrompt(opts) {
       </div>
     </div>`;
     document.body.appendChild(wrap);
+    syncDateShells(wrap);
     const done = val => { wrap.remove(); resolve(val); };
     wrap.addEventListener('click', ev => {
       if (ev.target === wrap) return done(null);
@@ -1318,6 +1345,20 @@ document.addEventListener('change', ev => {
   catSel.innerHTML = catOptionHtml(income ? INCOME_CATS : EXPENSE_CATS);
   form.classList.toggle('is-income', income);
 });
+
+/* 빈 날짜 칸 안내 문구 — 값이 생길거나 지워지면 바로 반영 */
+document.addEventListener('input', ev => {
+  const s = ev.target.closest && ev.target.closest('.date-shell');
+  if (!s) return;
+  const i = s.querySelector('input');
+  s.classList.toggle('is-empty', !(i && i.value));
+}, true);
+document.addEventListener('change', ev => {
+  const s = ev.target.closest && ev.target.closest('.date-shell');
+  if (!s) return;
+  const i = s.querySelector('input');
+  s.classList.toggle('is-empty', !(i && i.value));
+}, true);
 
 /* ───────────── click actions ───────────── */
 document.addEventListener('click', async ev => {

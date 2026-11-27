@@ -464,20 +464,60 @@ ul{list-style:none;margin:0;padding:0;}
 .progress{height:7px;border-radius:999px;background:#eef6fc;overflow:hidden;}
 .progress > i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#b9d9f2,#8fb9d9);transition:width .3s;}
 
-.add-form{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
-[data-form="sub"] .sub-month{display:none;}
-[data-form="sub"].yearly .sub-month{display:inline-block;}
-[data-form="sub"] .cycle-select,[data-form="sub"] .sub-day,[data-form="sub"] .sub-month{width:auto;}
+.add-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end;}
+.add-form.inline{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.add-form.btn-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.add-form .fld{display:flex;flex-direction:column;gap:5px;min-width:0;}
+.add-form .fld > span:first-child{
+  font-size:12px;color:#93a6b5;line-height:1.35;padding-left:2px;letter-spacing:.01em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.add-form .fld > span:first-child small{font-size:10.5px;color:#b9c7d2;margin-left:2px;}
+.add-form .fld.w2{grid-column:span 2;}
+.add-form .fld.full{grid-column:1/-1;}
+.add-form > .btn{grid-column:1/-1;justify-self:end;min-width:92px;padding:10px 18px;}
+.add-form .fld .in{width:100%;max-width:100%;min-width:0;}
+[data-form="sub"] .fld.month{display:none;}
+[data-form="sub"].yearly .fld.month{display:flex;}
+[data-form="sub"]:not(.yearly) .fld.day{grid-column:span 2;}
+[data-form="sub"] .cycle-select,[data-form="sub"] .sub-day,[data-form="sub"] .sub-month{width:100%;}
+@media (max-width:700px){
+  .add-form{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+  .add-form .fld.w2{grid-column:1/-1;}
+  .add-form .fld.date{grid-column:1/-1;}
+  .add-form > .btn{justify-self:stretch;width:100%;}
+}
 .in{
-  border:1px solid #e6f1fa;background:#fff;border-radius:10px;padding:9px 11px;font-size:15px;
-  outline:none;min-width:0;
+  border:1px solid #e6f1fa;background:#fff;border-radius:10px;padding:10px 12px;font-size:15px;
+  outline:none;min-width:0;width:100%;max-width:100%;box-sizing:border-box;text-align:left;
+  font-family:inherit;color:inherit;line-height:1.35;
 }
 .in:focus{border-color:#c6e0f4;box-shadow:0 0 0 3px #f0f8ff;}
 .in.grow{flex:1;min-width:140px;}
-.in.num{width:104px;text-align:right;font-family:var(--font-num);}
-.in.date{width:150px;}
-.in.time{width:118px;}
-select.in{background:#fff;}
+/* 금액 칸도 왼쪽 정렬 — 칸마다 정렬이 달라 보이지 않게 */
+.in.num{font-family:var(--font-num);letter-spacing:.01em;text-align:left;}
+textarea.in{display:block;resize:vertical;min-height:78px;line-height:1.65;}
+select.in{background:#fff;text-align:left;}
+/* iOS 사파리는 date/time 칸을 기본 모양으로 그리면서 칸 폭을 넘기고 가운데 정렬한다 */
+input[type="date"],input[type="time"]{
+  -webkit-appearance:none;appearance:none;display:block;
+  width:100%;max-width:100%;min-width:0;box-sizing:border-box;
+  text-align:left;background:#fff;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-datetime-edit{text-align:left;}
+input[type="date"]::-webkit-inner-spin-button,
+input[type="time"]::-webkit-inner-spin-button{-webkit-appearance:none;display:none;}
+input[type="date"]::-webkit-calendar-picker-indicator{opacity:.45;}
+/* 빈 날짜 칸 — 무엇을 넣는 칸인지 칸 안에서 바로 보이게
+   (안내 문구는 iOS만. 크롬·데스크톱은 자체 placeholder가 이미 보여 둘이 겹친다) */
+.date-shell{position:relative;display:block;min-width:0;}
+.ios .date-shell.is-empty::after{
+  content:attr(data-ph);position:absolute;left:13px;top:50%;transform:translateY(-50%);
+  font-size:14px;color:#b6c6d3;pointer-events:none;letter-spacing:.01em;
+}
 .btn{
   border:1px solid #d9eaf7;background:linear-gradient(180deg,#f7fcff,#eef7ff);
   color:#5c88a8;border-radius:10px;padding:8px 12px;font-size:14px;white-space:nowrap;
@@ -510,8 +550,8 @@ select.in{background:#fff;}
 .dday-pill small{font-size:10.5px;font-weight:500;color:#9db4c5;}
 .dday-pill.past{color:#b3c0cb;background:#f7fafc;}
 .dday-pill.in{background:#eaf8f0;color:#3f8f63;}
-.money-type{width:86px;}
-.money-cat{width:108px;}
+.money-type{width:100%;}
+.money-cat{width:100%;}
 .money-form.is-income .btn.primary{background:#e2f5e9;border-color:#bfe5cd;color:#3d7a57;}
 
 .empty{
@@ -570,14 +610,15 @@ select.in{background:#fff;}
 }
 .prompt[hidden]{display:none;}
 .prompt-box{
-  background:#fff;border-radius:16px;padding:18px 20px;width:min(400px,100%);
+  background:#fff;border-radius:16px;padding:18px 20px;width:min(440px,100%);
   box-shadow:var(--shadow-l);display:flex;flex-direction:column;gap:11px;border:1px solid #eaf4fc;
 }
 .prompt-box h4{margin:0;font-size:16px;color:#40586b;font-weight:600;}
 .prompt-box p{margin:0;font-size:13px;color:#93a6b5;line-height:1.6;}
 .prompt-box .row{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
-.pf{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#93a6b5;}
-.pf .in{width:100%;}
+.pf{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#93a6b5;min-width:0;}
+.pf .in{width:100%;max-width:100%;min-width:0;}
+.pf .date-shell{width:100%;min-width:0;}
 a{color:#6f9dc2;}
 
 /* diary */
@@ -677,7 +718,7 @@ a{color:#6f9dc2;}
   .stat-row .stat:last-child{grid-column:1 / -1;}
   .stat-row.money{grid-template-columns:1fr 1fr;}
   .stat-row.money .stat:last-child{grid-column:auto;}
-  .money-form .money-type,.money-form .money-cat{flex:1 1 28%;width:auto;min-width:82px;}
+  .money-form .money-type,.money-form .money-cat{width:100%;}
   .cal-cell{min-height:62px;padding:4px 3px;}
   .chip{font-size:8.5px;}
   .legend-money{margin-left:0;}
@@ -696,10 +737,7 @@ a{color:#6f9dc2;}
   .cal-spend,.cal-plan{font-size:10px;}
   .drow{flex-wrap:wrap;row-gap:5px;}
   .drow .grow{flex:1 1 auto;}
-  .add-form .in{flex:1 1 100%;}
-  .add-form .in.num,.add-form .in.date,.add-form .in.time{flex:1 1 45%;width:auto;}
-  [data-form="sub"] .cycle-select,[data-form="sub"] .sub-month,[data-form="sub"] .sub-day{flex:1 1 28%;width:auto;min-width:82px;}
-  .add-form .btn{flex:1 1 100%;}
+  .add-form > .btn{width:100%;}
 }
 
 @media (hover:none){ .cover-edit{opacity:1;} }
@@ -953,6 +991,10 @@ body[data-theme="xmas"] .progress{background:#f4ead9;}
 body[data-theme="xmas"] .progress > i{background:linear-gradient(90deg,#dcc08a,#2c6049);}
 body[data-theme="xmas"] .in{background:#fffdf8;border-color:#ecdcc6;}
 body[data-theme="xmas"] .in:focus{border-color:#d3bb95;box-shadow:0 0 0 3px #f8f1e3;}
+body[data-theme="xmas"] input[type="date"],body[data-theme="xmas"] input[type="time"]{background:#fffdf8;color:#5d4f3f;}
+body.ios[data-theme="xmas"] .date-shell.is-empty::after{color:#b8a58c;}
+body[data-theme="xmas"] .add-form .fld > span:first-child{color:#a2917d;}
+body[data-theme="xmas"] .add-form .fld > span:first-child small{color:#c0b09a;}
 body[data-theme="xmas"] .btn{border-color:#e6d6bf;background:linear-gradient(180deg,#fffdf6,#f7eedd);color:#6b5a48;}
 body[data-theme="xmas"] .btn:hover{background:#f3e8d4;border-color:#d9c4a3;}
 body[data-theme="xmas"] .btn.primary{background:#1f4a3a;border-color:#1f4a3a;color:#fbf3e3;font-weight:600;}
