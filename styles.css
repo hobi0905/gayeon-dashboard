@@ -715,6 +715,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:.45;}
 .dday-pill small{font-size:10.5px;font-weight:500;color:#9db4c5;}
 .dday-pill.past{color:#b3c0cb;background:#f7fafc;}
 .dday-pill.income{background:#eaf8f0;color:#3f8f63;}
+.dday-pill.plan{background:#fdf6ec;color:#a9865a;}
 .money-type{width:100%;}
 .money-cat{width:100%;}
 .money-form.is-income .btn.primary{background:#e2f5e9;border-color:#bfe5cd;color:#3d7a57;}
@@ -1324,6 +1325,7 @@ body[data-theme="xmas"] .tag.soon{background:#faeed3;color:#9a7434;}
 body[data-theme="xmas"] .dday-pill{background:#f7eedf;color:#a97f3e;}
 body[data-theme="xmas"] .dday-pill.past{background:#faf5ec;color:#b8a790;}
 body[data-theme="xmas"] .dday-pill.income{background:#eaf4ec;color:#2f6b48;}
+body[data-theme="xmas"] .dday-pill.plan{background:#f7eedf;color:#a97f3e;}
 body[data-theme="xmas"] .tag.income{background:#e5f1e5;color:#3f6b4d;}
 body[data-theme="xmas"] .empty{background:#fffbf3;border-color:#f0e3d1;color:#b8a58d;}
 body[data-theme="xmas"] .stat{background:linear-gradient(160deg,#fffbf3,#fffdf8);border-color:#f1e5d3;}

@@ -503,7 +503,7 @@ function renderCalendar() {
     const shown = chips.slice(0, 2).map(c => `<span class="chip ${esc(c.cls)}">${esc(c.label)}</span>`).join('');
     const more = chips.length > 2 ? `<span class="cal-more">+${chips.length - 2}</span>` : '';
     const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds);
-    const money = `${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${pl ? `<span class="cal-plan">＋₩${won(pl)}</span>` : ''}`;
+    const money = `${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${pl ? `<span class="cal-plan">−₩${won(pl)}</span>` : ''}`;
     return `<button class="${cls}" data-act="open-day" data-date="${ds}">
       <span class="dnum">${d.getDate()}</span>
       <span class="cal-chips">${shown}${more}</span>
@@ -544,7 +544,7 @@ function calxDayPanel() {
   const rows = [
     ...b.exms.map(x => `<div class="drow"><span class="tag ${esc(x.type)}">${esc(x.type)}</span><span class="grow"><b>${esc(x.name)}</b>${x.memo ? ` <span class="muted">${esc(x.memo)}</span>` : ''}</span></div>`),
     ...b.evs.map(e => `<div class="drow">${e.start ? `<b class="ag-time">${esc(e.start)}</b>` : ''}<span class="tag ${esc(e.category || 'personal')}">${esc(CAT_LABEL[e.category] || '일정')}</span><span class="grow">${esc(e.title)}</span></div>`),
-    ...b.plans.map(p => `<div class="drow" style="border-style:dashed"><span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span><span class="dday-pill">＋₩${won(p.amount)}</span></div>`),
+    ...b.plans.map(p => `<div class="drow" style="border-style:dashed"><span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span><span class="dday-pill plan">−₩${won(p.amount)}</span></div>`),
   ];
   const money = [b.income ? `수입 ＋₩${won(b.income)}` : '', b.spent ? `지출 −₩${won(b.spent)}` : ''].filter(Boolean).join(' · ');
   return `<div class="sec-card calx-day">
@@ -577,7 +577,7 @@ function calxAgendaHtml(y, m) {
       <div class="ag-rows">
         ${g.exms.map(x => `<div class="ag-row"><span class="tag ${esc(x.type)}">${esc(x.type)}</span><span class="grow">${esc(x.name)}${x.memo ? `<span class="muted"> · ${esc(x.memo)}</span>` : ''}</span></div>`).join('')}
         ${g.evs.map(e => `<div class="ag-row">${e.start ? `<span class="ag-time">${esc(e.start)}</span>` : ''}<span class="dotc ${esc(e.category || 'personal')}"></span><span class="grow">${esc(e.title)}</span>${e.repeat === 'weekly' ? '<span class="muted">매주</span>' : ''}</div>`).join('')}
-        ${g.plans.map(p => `<div class="ag-row"><span class="dotc plan"></span><span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span><span class="dday-pill">＋₩${won(p.amount)}</span></div>`).join('')}
+        ${g.plans.map(p => `<div class="ag-row"><span class="dotc plan"></span><span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span><span class="dday-pill plan">−₩${won(p.amount)}</span></div>`).join('')}
       </div>
       ${(g.spent || g.income) ? `<div class="ag-money">${g.income ? `<span class="cal-income">수입 ＋₩${won(g.income)}</span>` : ''}${g.spent ? `<span class="cal-spend">지출 −₩${won(g.spent)}</span>` : ''}</div>` : ''}
     </div>`).join('');
@@ -595,7 +595,7 @@ function renderCalendarModal() {
     const shown = chips.slice(0, 3).map(c => `<span class="chip ${esc(c.cls)}">${esc(c.label)}</span>`).join('');
     const more = chips.length > 3 ? `<span class="cal-more">+${chips.length - 3}</span>` : '';
     const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds);
-    const money = `${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${pl ? `<span class="cal-plan">＋₩${won(pl)}</span>` : ''}`;
+    const money = `${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${pl ? `<span class="cal-plan">−₩${won(pl)}</span>` : ''}`;
     return `<button class="${cls}" data-act="calx-day" data-date="${ds}" aria-label="${d.getDate()}일 일정 보기">
       <span class="dnum">${d.getDate()}</span>
       <span class="cal-chips">${shown}${more}</span>
@@ -783,7 +783,7 @@ function financeCalendar() {
       <span class="dn">${d.getDate()}</span>
       ${inc ? `<span class="inc">+${won(inc)}</span>` : ''}
       ${sp ? `<span class="sp">-${won(sp)}</span>` : ''}
-      ${pl ? `<span class="pl">+${won(pl)}</span>` : ''}
+      ${pl ? `<span class="pl">-${won(pl)}</span>` : ''}
     </button>`;
   }).join('');
   return `<div class="fcal">${head}${cells}</div>`;
@@ -795,7 +795,7 @@ function finDayPanel() {
   const plans = plannedOn(ds);
   const inc = incomeOn(ds), spent = spentOn(ds);
   const head = [`수입 ₩${won(inc)}`, `지출 ₩${won(spent)}`];
-  if (plans.length) head.push(`예정 ₩${won(plannedSum(ds))}`);
+  if (plans.length) head.push(`예정 −₩${won(plannedSum(ds))}`);
   return `<div class="sec-card">
     <div class="sec-head" style="margin:0">
       <h3><span class="em">🧾</span>${fmtDateKo(ds)}</h3>
@@ -812,7 +812,7 @@ function finDayPanel() {
     ${plans.length ? `<div class="row-list">${plans.map(p => `
       <div class="drow" style="border-style:dashed">
         <span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span>
-        <span class="dday-pill">＋₩${won(p.amount)}</span>
+        <span class="dday-pill plan">−₩${won(p.amount)}</span>
       </div>`).join('')}</div>` : ''}
     ${moneyFormHtml(ds)}
   </div>`;
@@ -832,7 +832,7 @@ function renderFinanceModal() {
         <div class="k">이번 달 지출<span class="stat-go">상세 ›</span></div><div class="v">−₩${won(st.spent)}</div>
       </button>
       <button class="stat plan stat-btn" data-act="fin-detail" data-kind="plan" title="예정 지출 상세 · 카테고리 비율">
-        <div class="k">예정 지출<span class="stat-go">상세 ›</span></div><div class="v">₩${won(st.planned)}</div>
+        <div class="k">예정 지출<span class="stat-go">상세 ›</span></div><div class="v">−₩${won(st.planned)}</div>
       </button>
       <div class="stat balance ${st.balance < 0 ? 'neg' : ''}"><div class="k">수입 - 지출</div><div class="v">${st.balance < 0 ? '−' : ''}₩${won(Math.abs(st.balance))}</div></div>
     </div>
@@ -945,7 +945,7 @@ function renderInvestModal() {
 const FIN_DETAIL = {
   income: { label: '이번 달 수입', short: '수입', em: '💚', pill: 'income', sign: '＋' },
   spend: { label: '이번 달 지출', short: '지출', em: '💸', pill: 'out', sign: '−' },
-  plan: { label: '예정 지출', short: '예정 지출', em: '🗓', pill: 'plan', sign: '＋' },
+  plan: { label: '예정 지출', short: '예정 지출', em: '🗓', pill: 'plan', sign: '−' },
 };
 /* 도넛 가운데 글씨는 돈이 커도 넘치지 않게 줄여 쓴다 (정확한 합계는 위 제목줄에) */
 function compactWon(n) {
@@ -1234,7 +1234,7 @@ function renderDayModal(dateStr) {
       ${plans.length ? `<div class="row-list">${plans.map(p => `
         <div class="drow" style="border-style:dashed">
           <span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span>
-          <span class="dday-pill">＋₩${won(p.amount)}</span>
+          <span class="dday-pill plan">−₩${won(p.amount)}</span>
         </div>`).join('')}</div>` : ''}
       ${moneyFormHtml(ds)}
     </section>`;
