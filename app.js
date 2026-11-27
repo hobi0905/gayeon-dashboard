@@ -1268,6 +1268,15 @@ function debtSectionHtml() {
   const paySub = !monthRows.length
     ? (L.startMonth && thisYm < L.startMonth ? `${fmtDot(L.startMonth)}부터 시작` : '이번 달 납부 없음')
     : `${fmtDot(payDate)} · ${monthRows.length}건 ${bankDefer ? '거치기간 이자' : '(원금+이자)'}`;
+  /* 이번 달(11월)처럼 아직 시작 전이면 ₩0 대신 다음 납부를 보여준다 */
+  const upcomingYm = (!monthRows.length && L.startMonth && isYM(L.startMonth) && thisYm < L.startMonth) ? L.startMonth : '';
+  const upcomingRows = upcomingYm ? loanRowsOn(loanDateIn(upcomingYm)) : [];
+  const upcomingTotal = upcomingRows.reduce((s, r) => s + r.amount, 0);
+  const payLabel = upcomingYm ? `다음 납부 (${Number(upcomingYm.slice(5, 7))}월)` : '이번 달 납부';
+  const payValue = upcomingYm ? upcomingTotal : monthTotal;
+  const payNote = upcomingYm
+    ? `${fmtDot(loanDateIn(upcomingYm))} · ${upcomingRows.length}건 거치기간 이자`
+    : paySub;
   return `
     <section class="sec">
       <div class="sec-head">
@@ -1276,7 +1285,7 @@ function debtSectionHtml() {
         <span class="sec-note">햇살론유스 · 총 원금 ₩${won(total)}</span>
       </div>
       <div class="stat-row debt">
-        <div class="stat plan"><div class="k">이번 달 납부</div><div class="v">₩${won(monthTotal)}</div><div class="stat-sub">${paySub}</div></div>
+        <div class="stat plan"><div class="k">${payLabel}</div><div class="v">₩${won(payValue)}</div><div class="stat-sub">${payNote}</div></div>
         <div class="stat"><div class="k">남은 원금</div><div class="v">₩${won(remaining)}</div><div class="stat-sub">${fmtDot(thisYm)} 기준 · 총 원금 ₩${won(total)}</div></div>
         <div class="stat income"><div class="k">첫 원금상환</div><div class="v">${nextStart ? fmtDot(nextStart) : '상환 중'}</div><div class="stat-sub">거치 끝나고 다음 달부터</div></div>
       </div>
@@ -1293,7 +1302,7 @@ function debtSectionHtml() {
           <button class="icon-x" data-act="loan-defer-edit" data-id="${esc(c.id)}" title="수정">✏️</button>
         </div>`).join('')}</div>
       </div>` : ''}
-      <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 <b>${loanPayDay()}일</b> 납부액이 가계부에 자동으로 잡혀요(지출 상세 도넗 ‘대출·이자’). 거치기간에는 은행별 이자만, 거치가 끝난 다음 달부터는 <b>원금균등분할상환</b>으로 원금+이자가 함께 나가요. 금액은 저장하지 않고 열어볼 때다 계산해요.</div>
+      <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 <b>${loanPayDay()}일</b> 납부액이 가계부에 자동으로 잡혀요(지출 상세 도넛 ‘대출·이자’). 거치기간에는 은행별 이자만, 거치가 끝난 다음 달부터는 <b>원금균등분할상환</b>으로 원금+이자가 함께 나가요. 금액은 저장하지 않고 열어볼 때마다 계산해요.</div>
     </section>`;
 }
 

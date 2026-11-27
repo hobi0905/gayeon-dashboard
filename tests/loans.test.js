@@ -155,7 +155,7 @@ function ok(cond, name, extra) {
   ok($('#modalTitle').textContent.includes('투자'), '투자 탭 → 모달', $('#modalTitle').textContent);
   ok(inv.includes('부채현황') && inv.includes('🏦'), '부채현황 섹션', inv.slice(0, 80));
   ok(inv.includes('총 원금 ₩12,000,000'), '총 부채 원금 1,200만 원', inv.match(/총 원금[^ ]* [₩0-9,]+/) || '');
-  ok(inv.includes('이번 달 납부') && inv.includes('₩37,000'), '이번 달 납부액 37,000', inv.match(/이번 달 납부[^가-힣]*/) || '');
+  ok(/(이번 달|다음) 납부/.test(inv) && inv.includes('₩37,000'), '이번 달(또는 다음) 납부액 37,000', inv.match(/(이번 달|다음) 납부[^가-힣]*/) || '');
   ok(inv.includes('₩12,000,000') && inv.includes('남은 원금'), '남은 원금 표시', '');
   ok(inv.includes('첫 원금상환') && inv.includes('2028.12'), '첫 원금상환 2028.12', '');
   const cards = $$('#modalBody .loan-card[data-loan]');
