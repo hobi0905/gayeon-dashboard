@@ -36,6 +36,8 @@
 }
 
 *{box-sizing:border-box;}
+/* 입력칸은 종류·브라우저와 상관없이 항상 왼쪽 정렬 — 칸마다 들쭉날쭉해 보이지 않게 */
+input,select,textarea{text-align:left;}
 html,body{margin:0;padding:0;}
 body{
   background:
