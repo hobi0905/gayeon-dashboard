@@ -350,6 +350,13 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(statRow.querySelector('.stat.balance .v').textContent.includes(wonNum(fstats.balance)), '요약에 잔액 표시', statRow.querySelector('.stat.balance .v').textContent);
   ok($('#modalBody').textContent.includes('＋₩620,000'), '날짜 목록에 수입 +₩ 표시');
 
+  console.log('▸ 가계부 내역 행 레이아웃');
+  const incRow = $$('#modalBody .drow').find(r => r.textContent.includes('테스트 월급'));
+  ok(!!incRow && !!incRow.querySelector('.dday-pill.income'), '수입 금액은 .income 클래스', incRow && incRow.querySelector('.dday-pill').className);
+  ok(!!incRow && !incRow.querySelector('.dday-pill.in'), '수입 금액이 입력칸 .in 클래스를 입지 않음');
+  ok(!!incRow && !!incRow.querySelector('.grow') && incRow.querySelector('.grow').textContent.includes('알바·급여'), '수입 행에 내역·카테고리 영역');
+  ok(!!incRow && incRow.querySelector('.dday-pill').className.trim() === 'dday-pill income', '금액 칸 클래스는 dday-pill income 하나', incRow && incRow.querySelector('.dday-pill').className);
+
   const fcellInc = $$('.fcal-day').find(c => c.dataset.date === '2026-12-01');
   ok(!!fcellInc.querySelector('.inc') && fcellInc.querySelector('.inc').textContent.includes('620,000'), '가계부 캘린더에 수입 표시', fcellInc.textContent);
   ok(!!fcellInc.querySelector('.sp') && fcellInc.querySelector('.sp').textContent.includes('8,500'), '가계부 캘린더에 지출 -표시', fcellInc.textContent);
@@ -416,6 +423,9 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.note-card p\{[^}]*font-size:15px/.test(css), '메모 본문 15px');
   ok(/\.diary-row \.tx\{[^}]*font-size:15px/.test(css), '한줄일기 15px');
   ok(/\.habit-grid \.hn\{[^}]*font-size:14\.5px/.test(css), '습관 이름 14.5px');
+  ok(/\.drow \.dday-pill,\.drow \.tag,\.drow \.icon-x\{[^}]*flex:0 0 auto/.test(css), '금액·태그·삭제는 내용만큼만');
+  ok(/\.drow \.grow\{[^}]*flex:1 1 0[^}]*min-width:0/.test(css), '내역이 남는 폭을 갖음');
+  ok(/\.dday-pill\.income\{/.test(css) && !/\.dday-pill\.in\{/.test(css), '수입 금액 전용 클래스(.in 충돌 제거)');
 
   console.log('▸ 날짜 상세 모달');
   click($('[data-act="modal-close"]'));

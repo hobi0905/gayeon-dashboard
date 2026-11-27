@@ -618,7 +618,7 @@ function finDayPanel() {
       <div class="drow">
         ${isIncome(e) ? '<span class="tag income">수입</span>' : ''}
         <span class="grow">${esc(e.title)} <span class="muted">${esc(e.cat || '기타')}${e.memo ? ' · ' + esc(e.memo) : ''}</span></span>
-        <span class="dday-pill ${isIncome(e) ? 'in' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
+        <span class="dday-pill ${isIncome(e) ? 'income' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
         <button class="icon-x" data-act="exp-del" data-id="${e.id}">✕</button>
       </div>`).join('')}</div>` : '<div class="empty">이 날 쓴 내역이 없어요</div>'}
     ${plans.length ? `<div class="row-list">${plans.map(p => `
@@ -900,7 +900,7 @@ function renderDayModal(dateStr) {
         <div class="drow">
           ${isIncome(e) ? '<span class="tag income">수입</span>' : ''}
           <span class="grow">${esc(e.title)} <span class="muted">${esc(e.cat || '기타')}${e.memo ? ' · ' + esc(e.memo) : ''}</span></span>
-          <span class="dday-pill ${isIncome(e) ? 'in' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
+          <span class="dday-pill ${isIncome(e) ? 'income' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
           <button class="icon-x" data-act="exp-del" data-id="${e.id}">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">아직 기록이 없어요</div>'}
       ${plans.length ? `<div class="row-list">${plans.map(p => `
@@ -2030,7 +2030,7 @@ function renderWeatherModal() {
   const cur = s.data.current || {};
   const [em, label] = wxOf(cur.weather_code != null ? cur.weather_code : 0);
   const d0 = s.days[0] || {};
-  const rainNow = s.hours.length ? s.hours[0].rain : d0.rain;
+  const rainNow = d0.rain != null ? d0.rain : (s.hours.length ? s.hours[0].rain : null);
   const stat = (k, v) => `<div class="wxm-stat"><span>${k}</span><b>${v}</b></div>`;
   const hhmm = t => (t && t.length >= 16 ? t.slice(11, 16) : '');
 
