@@ -799,6 +799,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:.45;}
 .fd-amt.plan{color:#a9865a;}
 .fd-amt.saving{color:#3f7a6e;}
 .fd-flag{flex:none;font-size:10.5px;color:#a9865a;background:#fdf6ec;border-radius:999px;padding:1px 7px;white-space:nowrap;}
+.fd-flag.auto{color:#5b7d98;background:#eef6fc;}
 
 /* ───────────── weather 10-day modal ───────────── */
 .wxm-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-2px;}
@@ -891,6 +892,26 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:.45;}
 .goal-amt{font-family:var(--font-num);font-size:13px;color:#7f97a9;}
 .goal-pct{margin-left:auto;font-family:var(--font-num);font-weight:600;font-size:13px;color:#5f93b8;}
 .goal-bot{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:#a3b3c0;line-height:1.5;}
+
+/* 🏦 부채현황 — 회차별 대출 카드 */
+.loan-card{background:#fff;border:1px solid #eef5fb;border-radius:14px;padding:11px 13px;display:flex;flex-direction:column;gap:8px;}
+.loan-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.loan-round{font-family:var(--font-num);font-size:13.5px;font-weight:700;color:#5b7d98;white-space:nowrap;}
+.loan-amt{font-family:var(--font-num);font-size:14px;font-weight:700;color:#42688a;white-space:nowrap;}
+.loan-amt small{font-size:10.5px;font-weight:500;color:#9db4c5;}
+.loan-rate{font-family:var(--font-num);font-size:12px;color:#8fa6b6;white-space:nowrap;}
+.loan-acts{margin-left:auto;display:flex;gap:2px;}
+.loan-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 10px;margin:0;}
+.loan-meta dt{font-size:10.5px;color:#a4b3c0;letter-spacing:.02em;}
+.loan-meta dd{margin:1px 0 0;font-family:var(--font-num);font-size:12.5px;color:#5b7d98;white-space:nowrap;}
+.loan-bar{display:flex;align-items:center;gap:8px;}
+.loan-bar .progress{flex:1 1 auto;}
+.loan-bar > span{flex:none;font-family:var(--font-num);font-size:11px;color:#a4b3c0;white-space:nowrap;}
+.loan-month{font-family:var(--font-num);font-size:12px;color:#7b93a5;}
+.loan-month .muted{color:#a8b7c2;font-size:11px;}
+.loan-defer-card{background:linear-gradient(160deg,#fdfaf4,#fffefb);border-color:#f3ead9;}
+.loan-defer-card .drow{padding:6px 10px;}
+@media (max-width:640px){ .loan-meta{grid-template-columns:repeat(2,minmax(0,1fr));} }
 
 /* toggle */
 .switch{position:relative;width:38px;height:21px;flex:none;border-radius:999px;background:#e6eef5;border:none;transition:background .18s;}
@@ -1376,6 +1397,14 @@ body[data-theme="xmas"] .goal-name{color:#3f5b45;}
 body[data-theme="xmas"] .goal-amt{color:#8a7458;}
 body[data-theme="xmas"] .goal-pct{color:#a97f3e;}
 body[data-theme="xmas"] .goal-bot{color:#ac9a85;}
+body[data-theme="xmas"] .loan-card{background:#fffdf8;border-color:#f2e7d6;}
+body[data-theme="xmas"] .loan-round{color:#8a7355;}
+body[data-theme="xmas"] .loan-amt{color:#7a5c38;}
+body[data-theme="xmas"] .loan-rate{color:#a68f72;}
+body[data-theme="xmas"] .loan-meta dt{color:#b3a28c;}
+body[data-theme="xmas"] .loan-meta dd{color:#7a5c38;}
+body[data-theme="xmas"] .loan-bar > span,body[data-theme="xmas"] .loan-month{color:#a68f72;}
+body[data-theme="xmas"] .loan-defer-card{background:linear-gradient(160deg,#fdf7ec,#fffdf8);border-color:#f0e2cd;}
 body[data-theme="xmas"] .switch{background:#eadfce;}
 body[data-theme="xmas"] .switch.on{background:#2c6049;}
 body[data-theme="xmas"] .mood-btn{background:#fffdf8;border-color:#f0e3d1;}

@@ -152,6 +152,74 @@ function purgeRetiredSeeds(s) {
 const IS_IOS = /iP(hone|ad|od)/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 if (IS_IOS) document.body.classList.add('ios');
 
+/* ───────────── 🏦 햇살론유스 대출 (부채현황) ─────────────
+   5건 모두 연 4.0% 고정금리.
+   · 거치기간(2026.12~2028.11)에는 은행별 월 이자가 따로 청구된다 (신한 19,000 + IBK 18,000 = 37,000)
+   · 거치가 끝난 다음 달부터 원금균등분할상환 (원금 ÷ 개월수 + 남은 원금 × 연 4% ÷ 12)
+   · 납부일은 매달 15일 — 금액은 저장하지 않고 그 달을 볼 때마다 계산한다 */
+const LOAN_CAT = '대출·이자';
+const LOAN_RATE = 0.04;
+const LOAN_PAY_DAY = 15;
+const LOAN_START_MONTH = '2026-12';   /* 가계부에 납부가 표시되기 시작하는 달 */
+const LOAN_DEFER_END = '2028-11';     /* 은행별 거치 이자를 쓰는 마지막 달 */
+const isYM = v => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(v == null ? '' : v));
+const ymIndex = ym => { const [y, m] = String(ym).split('-').map(Number); return y * 12 + (m - 1); };
+const ymAdd = (ym, n) => { const i = ymIndex(ym) + n; return `${Math.floor(i / 12)}-${pad2(i % 12 + 1)}`; };
+const fmtDot = v => (/^\d{4}-\d{2}/.test(String(v == null ? '' : v)) ? String(v).slice(0, 10).replace(/-/g, '.') : '—');
+function seedLoans() {
+  return {
+    payDay: LOAN_PAY_DAY,
+    startMonth: LOAN_START_MONTH,
+    deferEnd: LOAN_DEFER_END,
+    /* 거치기간에 은행별로 나가던 월 이자 — 실제 청구 금액 그대로 */
+    deferCharges: [
+      { id: 'loan-defer-shinhan', name: '햇살론유스 이자 (신한은행)', amount: 19000 },
+      { id: 'loan-defer-ibk', name: '햇살론유스 이자 (IBK은행)', amount: 18000 },
+    ],
+    rounds: [
+      { id: 'loan-r1', round: 1, principal: 3000000, rate: LOAN_RATE, startDate: '2024-11-03', deferEnd: '2028-11-03', repayStart: '2028-12', months: 60 },
+      { id: 'loan-r2', round: 2, principal: 5000000, rate: LOAN_RATE, startDate: '2024-12-09', deferEnd: '2028-12-09', repayStart: '2029-01', months: 84 },
+      { id: 'loan-r3', round: 3, principal: 1000000, rate: LOAN_RATE, startDate: '2025-06-13', deferEnd: '2029-06-13', repayStart: '2029-07', months: 84 },
+      { id: 'loan-r4', round: 4, principal: 1700000, rate: LOAN_RATE, startDate: '2025-11-28', deferEnd: '2029-11-28', repayStart: '2029-12', months: 84 },
+      { id: 'loan-r5', round: 5, principal: 1300000, rate: LOAN_RATE, startDate: '2026-01-05', deferEnd: '2030-01-05', repayStart: '2030-02', months: 84 },
+    ],
+  };
+}
+function normalizeLoanRound(l, i) {
+  const r = Object.assign({}, l);
+  r.id = r.id || `loan-r${i + 1}`;
+  r.round = Number(r.round) || i + 1;
+  r.principal = Math.max(0, Math.round(Number(r.principal) || 0));
+  r.rate = Number(r.rate) > 0 ? Number(r.rate) : LOAN_RATE;
+  r.startDate = dateOnly(r.startDate);
+  r.deferEnd = dateOnly(r.deferEnd);
+  r.repayStart = isYM(r.repayStart) ? r.repayStart : '';
+  r.months = Math.max(0, Math.round(Number(r.months) || 0));
+  if (!r.months && r.repayStart && isYM(r.repayEnd)) r.months = ymIndex(r.repayEnd) - ymIndex(r.repayStart) + 1;
+  r.repayEnd = (r.repayStart && r.months) ? ymAdd(r.repayStart, r.months - 1) : (isYM(r.repayEnd) ? r.repayEnd : '');
+  return r;
+}
+/* loans가 없는 예전 저장값·클라우드 값은 시드로 채운다. 한 번 비우면(빈 배열) 그대로 존중한다. */
+function normalizeLoans(raw) {
+  const base = seedLoans();
+  if (!raw) return base;
+  const src = Array.isArray(raw) ? { rounds: raw } : raw;
+  const rounds = Array.isArray(src.rounds) ? src.rounds.filter(Boolean).map(normalizeLoanRound) : [];
+  const charges = Array.isArray(src.deferCharges) ? src.deferCharges.filter(Boolean).map((c, i) => ({
+    id: c.id || `loan-defer-${i + 1}`,
+    name: String(c.name || '햇살론유스 이자'),
+    amount: Math.abs(Math.round(Number(c.amount) || 0)),
+  })) : base.deferCharges;
+  return {
+    payDay: Math.min(31, Math.max(1, Math.round(Number(src.payDay) || base.payDay))),
+    startMonth: isYM(src.startMonth) ? src.startMonth : base.startMonth,
+    deferEnd: isYM(src.deferEnd) ? src.deferEnd : base.deferEnd,
+    rate: Number(src.rate) > 0 ? Number(src.rate) : base.rate,
+    deferCharges: charges,
+    rounds,
+  };
+}
+
 function seedState() {
   return {
     v: 3,
@@ -169,7 +237,7 @@ function seedState() {
       today: [],
       exams: SEED_EXAMS.map(([name, date, type, memo]) => ({ id: uid(), name, date, type, memo })),
     },
-    finance: { expenses: [], goals: [], invest: [], subs: [], planned: [] },
+    finance: { expenses: [], goals: [], invest: [], subs: [], planned: [], loans: seedLoans() },
     wish: { want: [], need: [] },
     memo: { diary: [], habits: [], notes: [] },
     events: SEED_EVENTS.map(([title, date, end, start, endTime, category]) => ({
@@ -207,6 +275,7 @@ function normalize(s) {
   const out = Object.assign({}, base, s);
   out.study = Object.assign({ month: [], week: [], today: [], exams: [] }, s.study || {});
   out.finance = Object.assign({ expenses: [], goals: [], invest: [], subs: [], planned: [] }, s.finance || {});
+  out.finance.loans = normalizeLoans(out.finance.loans);
   /* type이 없던 예전 지출 내역은 그대로 '지출'로 살린다 */
   out.finance.expenses = (out.finance.expenses || []).filter(Boolean).map(e => Object.assign({}, e, {
     type: e.type === 'income' ? 'income' : e.type === 'saving' ? 'saving' : 'expense',
@@ -418,7 +487,7 @@ function examsOn(dateStr) {
   return state.study.exams.filter(e => e.date === dateStr);
 }
 /* 가계부 내역 종류 — type이 없는 예전 데이터는 전부 '지출'로 본다 */
-const EXPENSE_CATS = ['식비', '카페', '교통', '쇼핑', '생활', '병원·약', '공부', '여가', '기타'];
+const EXPENSE_CATS = ['식비', '카페', '교통', '쇼핑', '생활', '병원·약', '공부', '여가', '대출·이자', '기타'];
 const INCOME_CATS = ['알바·급여', '용돈', '부수입·환급', '기타'];
 /* 📈 투자 탭에 아직 항목이 없을 때 저축 카테고리로 고를 수 있는 기본값 */
 const SAVING_FALLBACK_CATS = ['재무목표', '주식투자'];
@@ -533,6 +602,113 @@ function subHitsOn(s, y, m, d) {
   if (s.cycle === 'yearly') return Number(s.month) === m;
   return true;
 }
+/* ───────────── 🏦 대출 납부 계산 ───────────── */
+function loansOf() {
+  const L = state && state.finance && state.finance.loans;
+  return L && typeof L === 'object' ? L : null;
+}
+function loanPayDay() {
+  return Math.min(31, Math.max(1, Math.round(Number((loansOf() || {}).payDay) || LOAN_PAY_DAY)));
+}
+function loanMonths(l) { return Math.max(0, Math.round(Number(l && l.months) || 0)); }
+function loanRepayEnd(l) {
+  if (!l) return '';
+  if (isYM(l.repayStart) && loanMonths(l)) return ymAdd(l.repayStart, loanMonths(l) - 1);
+  return isYM(l.repayEnd) ? l.repayEnd : '';
+}
+/* 그 달(YYYY-MM) 회차 한 건의 납부 내역
+   · 거치 중 → 이자만 (원금 × 연 4% ÷ 12)
+   · 상환 중 → 원금균등분할 (월 원금 = 원금 ÷ 개월수, 나뉘지 않는 나머지는 앞 달부터 1원씩)
+   · 만기 뒤 → null(납부 없음) */
+function loanChargeAt(l, ym) {
+  if (!l || !isYM(ym)) return null;
+  const principal = Math.max(0, Math.round(Number(l.principal) || 0));
+  const n = loanMonths(l);
+  if (!principal || !n || !isYM(l.repayStart)) return null;
+  const rate = Number(l.rate) > 0 ? Number(l.rate) : LOAN_RATE;
+  const end = loanRepayEnd(l);
+  const cur = ymIndex(ym), start = ymIndex(l.repayStart);
+  if (end && cur > ymIndex(end)) return null;
+  if (cur < start) {
+    return { status: 'defer', idx: -1, months: n, principal: 0, interest: Math.round(principal * rate / 12), balance: principal };
+  }
+  const idx = cur - start;
+  const base = Math.floor(principal / n), rest = principal - base * n;
+  const paidBefore = base * idx + Math.min(idx, rest);
+  const balance = principal - paidBefore;
+  return {
+    status: 'repay', idx, months: n,
+    principal: base + (idx < rest ? 1 : 0),
+    interest: Math.round(balance * rate / 12),
+    balance,
+  };
+}
+/* 그 달의 대출 납부일 (납부일이 그 달에 없으면 말일) — YYYY-MM */
+function loanDateIn(ym) {
+  if (!isYM(ym)) return '';
+  const [y, m] = String(ym).split('-').map(Number);
+  return `${ym}-${pad2(Math.min(loanPayDay(), daysInMonth(y, m - 1)))}`;
+}
+/* 그 날짜에 가계부에 자동으로 잡히는 대출 항목 */
+function loanRowsOn(dateStr) {
+  const L = loansOf();
+  const s = String(dateStr == null ? '' : dateStr);
+  if (!L || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return [];
+  const ym = s.slice(0, 7);
+  if (s !== loanDateIn(ym)) return [];
+  if (L.startMonth && isYM(L.startMonth) && ym < L.startMonth) return [];
+  const out = [];
+  /* 거치기간 — 은행별로 따로 청구되는 이자 */
+  if (!L.deferEnd || !isYM(L.deferEnd) || ym <= L.deferEnd) {
+    (L.deferCharges || []).forEach(c => {
+      const amount = Math.abs(Math.round(Number(c.amount) || 0));
+      if (amount > 0) out.push({ name: String(c.name || '햇살론유스 이자'), amount, kind: '거치기간 이자', cat: LOAN_CAT, loan: true, loanId: c.id });
+    });
+    return out;
+  }
+  /* 원금상환 단계 — 회차별로 계산 */
+  (L.rounds || []).forEach(l => {
+    const c = loanChargeAt(l, ym);
+    if (!c) return;
+    if (c.status === 'defer') {
+      if (c.interest > 0) out.push({
+        name: `햇살론유스 ${Number(l.round) || ''}회차 이자`.replace('  ', ' ').trim(),
+        amount: c.interest, kind: '거치기간 이자', cat: LOAN_CAT, loan: true, loanId: l.id,
+        principal: 0, interest: c.interest,
+      });
+      return;
+    }
+    const amount = c.principal + c.interest;
+    if (amount <= 0) return;
+    out.push({
+      name: `햇살론유스 ${Number(l.round) || ''}회차 상환`.replace('  ', ' ').trim(),
+      amount, kind: `원금 ${won(c.principal)} + 이자 ${won(c.interest)}`, cat: LOAN_CAT, loan: true, loanId: l.id,
+      principal: c.principal, interest: c.interest,
+    });
+  });
+  return out;
+}
+/* 그 달 대출 납부 합계 */
+function loanMonthTotal(ym) {
+  return loanRowsOn(loanDateIn(ym)).reduce((s, r) => s + r.amount, 0);
+}
+/* 그 달 납부를 마친 뒤의 남은 원금 */
+function loanRemaining(l, ym) {
+  const c = loanChargeAt(l, ym);
+  if (c) return Math.max(0, c.balance - c.principal);
+  const end = loanRepayEnd(l);
+  if (end && isYM(ym) && ym > end) return 0;
+  return Math.max(0, Math.round(Number(l && l.principal) || 0));
+}
+function loanRemainingTotal(ym) {
+  const L = loansOf();
+  return ((L && L.rounds) || []).reduce((s, l) => s + loanRemaining(l, ym), 0);
+}
+function loanTotalPrincipal() {
+  const L = loansOf();
+  return ((L && L.rounds) || []).reduce((s, l) => s + Math.max(0, Math.round(Number(l.principal) || 0)), 0);
+}
+
 function plannedOn(dateStr) {
   const dt = parseISO(dateStr);
   const y = dt.getFullYear(), m = dt.getMonth() + 1, day = dt.getDate();
@@ -545,6 +721,8 @@ function plannedOn(dateStr) {
     }));
   state.finance.planned.filter(p => p.date === dateStr)
     .forEach(p => out.push({ name: p.name, amount: Number(p.amount) || 0, kind: '구매예정', cat: '구매예정' }));
+  /* 대출 납부(15일) — 매달 자동 계산 */
+  loanRowsOn(dateStr).forEach(r => out.push(r));
   return out;
 }
 function plannedSum(dateStr) {
@@ -902,10 +1080,12 @@ function financeStats() {
   const flow = monthFlow(y, m);
   const carry = carryoverAmount(y, m);
   const income = flow.income + carry;
+  /* 이번 달 대출 납부(15일) — 예정에 포함되어 있지만 따로 보여준다 */
+  const loan = loanMonthTotal(monthPrefix(y, m));
   return {
-    income, spent: flow.spent, saved: flow.saved, planned: flow.planned,
+    income, spent: flow.spent, saved: flow.saved, planned: flow.planned, loan,
     spendTotal: flow.spendTotal, carry,
-    /* 수입 − 이번 달 지출(예정 포함) − 이번 달 저축·투자 */
+    /* 수입 − 이번 달 지출(예정·대출 포함) − 이번 달 저축·투자 */
     balance: income - flow.spendTotal - flow.saved,
   };
 }
@@ -981,9 +1161,9 @@ function renderFinanceModal() {
         <div class="k">이번 달 수입<span class="stat-go">상세 ›</span></div><div class="v">${st.income < 0 ? '−' : '＋'}₩${won(Math.abs(st.income))}</div>
         ${st.carry ? `<div class="stat-sub">전달 잔액 ${st.carry > 0 ? '＋' : '−'}₩${won(Math.abs(st.carry))} 포함</div>` : ''}
       </button>
-      <button class="stat spend stat-btn" data-act="fin-detail" data-kind="spend" title="이번 달 지출 상세 · 정기구독·구매예정 포함">
+      <button class="stat spend stat-btn" data-act="fin-detail" data-kind="spend" title="이번 달 지출 상세 · 정기구독·구매예정·대출 포함">
         <div class="k">이번 달 지출<span class="stat-go">상세 ›</span></div><div class="v">−₩${won(st.spendTotal)}</div>
-        ${st.planned ? `<div class="stat-sub">예정 ${won(st.planned)} 포함</div>` : ''}
+        ${st.planned ? `<div class="stat-sub">${st.loan && st.planned > st.loan ? `예정 ${won(st.planned - st.loan)} · 대출 ${won(st.loan)} 포함` : st.loan ? `대출 ${won(st.loan)} 포함` : `예정 ${won(st.planned)} 포함`}</div>` : ''}
       </button>
       <button class="stat saving stat-btn" data-act="fin-detail" data-kind="saving" title="이번 달 저축·투자 상세 · 카테고리 비율">
         <div class="k">저축<span class="stat-go">상세 ›</span></div><div class="v">↗₩${won(st.saved)}</div>
@@ -1030,6 +1210,90 @@ function renderFinanceModal() {
         <button class="btn primary" type="submit">추가</button>
       </form>
       <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 = 매월 그 날, 매년 = 그 달·그 날. 등록한 날 기준 <b>다음 결제일이 이번 달이면 이번 달부터, 지났으면 다음 달부터</b> 표시되고, 31일처럼 없는 날은 그 달 말일로 맞춰요.</div>
+    </section>`;
+}
+
+/* ───────────── 🏦 부채현황 (📈 투자 안 · 주식투자 아래) ───────────── */
+function loanStatusOf(l, ym) {
+  const end = loanRepayEnd(l);
+  const c = loanChargeAt(l, ym);
+  if (end && ym > end) return { key: 'done', label: '완납', pill: 'past', pct: 100, month: 0, charge: null };
+  if (c && c.status === 'repay') {
+    return { key: 'repay', label: `상환 ${c.idx + 1}/${c.months}개월`, pill: 'saving', pct: Math.round((c.idx + 1) / c.months * 100), month: c.principal + c.interest, charge: c };
+  }
+  return { key: 'defer', label: '거치 중', pill: 'plan', pct: 0, month: (c && c.interest) || 0, charge: c };
+}
+function loanRoundHtml(l, thisYm, bankDefer) {
+  const s = loanStatusOf(l, thisYm);
+  const n = loanMonths(l);
+  return `<div class="loan-card" data-loan="${esc(l.id)}">
+    <div class="loan-top">
+      <b class="loan-round">${esc(l.round)}회차</b>
+      <span class="loan-amt">₩${won(l.principal)}</span>
+      <span class="loan-rate">연 ${(Number(l.rate || LOAN_RATE) * 100).toFixed(1)}%</span>
+      <span class="dday-pill ${s.pill}">${s.label}</span>
+      <span class="loan-acts">
+        <button class="icon-x" data-act="loan-edit" data-id="${esc(l.id)}" title="수정">✏️</button>
+        <button class="icon-x" data-act="loan-del" data-id="${esc(l.id)}" title="삭제">✕</button>
+      </span>
+    </div>
+    <dl class="loan-meta">
+      <div><dt>대출일</dt><dd>${fmtDot(l.startDate)}</dd></div>
+      <div><dt>거치 종료</dt><dd>${fmtDot(l.deferEnd)}</dd></div>
+      <div><dt>원금상환 시작</dt><dd>${fmtDot(l.repayStart)}</dd></div>
+      <div><dt>만기(완납)</dt><dd>${fmtDot(loanRepayEnd(l))}</dd></div>
+    </dl>
+    <div class="loan-bar">
+      <div class="progress"><i style="width:${s.pct}%"></i></div>
+      <span>${s.key === 'done' ? '완납' : s.key === 'repay' ? `${s.pct}% · ${n}개월 중` : `거치 중 · ${n}개월 상환 예정`}</span>
+    </div>
+    ${!bankDefer && s.month ? `<div class="loan-month">이번 달 ₩${won(s.month)} <span class="muted">${s.key === 'repay' ? '원금+이자' : '이자만'}</span></div>` : ''}
+  </div>`;
+}
+function debtSectionHtml() {
+  const L = loansOf();
+  const rounds = (L && L.rounds) || [];
+  const charges = (L && L.deferCharges) || [];
+  if (!rounds.length && !charges.length) return '';
+  const thisYm = todayISO().slice(0, 7);
+  const bankDefer = !!(L.deferEnd && isYM(L.deferEnd) && thisYm <= L.deferEnd);
+  const total = loanTotalPrincipal();
+  const remaining = loanRemainingTotal(thisYm);
+  const payDate = loanDateIn(thisYm);
+  const monthRows = loanRowsOn(payDate);
+  const monthTotal = monthRows.reduce((s, r) => s + r.amount, 0);
+  const nextStart = rounds.map(l => l.repayStart).filter(isYM).sort().find(v => v > thisYm) || '';
+  const deferSum = charges.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  const sorted = rounds.slice().sort((a, b) => (Number(a.round) || 0) - (Number(b.round) || 0));
+  const paySub = !monthRows.length
+    ? (L.startMonth && thisYm < L.startMonth ? `${fmtDot(L.startMonth)}부터 시작` : '이번 달 납부 없음')
+    : `${fmtDot(payDate)} · ${monthRows.length}건 ${bankDefer ? '거치기간 이자' : '(원금+이자)'}`;
+  return `
+    <section class="sec">
+      <div class="sec-head">
+        <h3><span class="em">🏦</span>부채현황</h3>
+        <span class="sec-count">${sorted.length}건</span>
+        <span class="sec-note">햇살론유스 · 총 원금 ₩${won(total)}</span>
+      </div>
+      <div class="stat-row debt">
+        <div class="stat plan"><div class="k">이번 달 납부</div><div class="v">₩${won(monthTotal)}</div><div class="stat-sub">${paySub}</div></div>
+        <div class="stat"><div class="k">남은 원금</div><div class="v">₩${won(remaining)}</div><div class="stat-sub">${fmtDot(thisYm)} 기준 · 총 원금 ₩${won(total)}</div></div>
+        <div class="stat income"><div class="k">첫 원금상환</div><div class="v">${nextStart ? fmtDot(nextStart) : '상환 중'}</div><div class="stat-sub">거치 끝나고 다음 달부터</div></div>
+      </div>
+      <div class="row-list">${sorted.map(l => loanRoundHtml(l, thisYm, bankDefer)).join('')}</div>
+      ${charges.length ? `<div class="loan-card loan-defer-card">
+        <div class="loan-top">
+          <b class="loan-round">거치기간 이자</b>
+          <span class="loan-amt">₩${won(deferSum)}<small> /월</small></span>
+          <span class="loan-rate">${fmtDot(L.startMonth)} ~ ${fmtDot(L.deferEnd)}</span>
+        </div>
+        <div class="row-list">${charges.map(c => `<div class="drow">
+          <span class="grow">${esc(c.name)}</span>
+          <span class="dday-pill plan">₩${won(c.amount)}</span>
+          <button class="icon-x" data-act="loan-defer-edit" data-id="${esc(c.id)}" title="수정">✏️</button>
+        </div>`).join('')}</div>
+      </div>` : ''}
+      <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 <b>${loanPayDay()}일</b> 납부액이 가계부에 자동으로 잡혀요(지출 상세 도넗 ‘대출·이자’). 거치기간에는 은행별 이자만, 거치가 끝난 다음 달부터는 <b>원금균등분할상환</b>으로 원금+이자가 함께 나가요. 금액은 저장하지 않고 열어볼 때다 계산해요.</div>
     </section>`;
 }
 
@@ -1093,7 +1357,8 @@ function renderInvestModal() {
         ${F_CELL(`메모 ${F_OPT}`, '<input class="in" name="memo" placeholder="왜 관심을 갖게 됐는지" maxlength="80">', 'full')}
         <button class="btn primary" type="submit">추가</button>
       </form>
-    </section>`;
+    </section>
+    ${debtSectionHtml()}`;
 }
 
 /* ───────────── 가계부 요약 카드 → 이번 달 상세 + 원형 그래프 ───────────── */
@@ -1123,7 +1388,7 @@ function financeMonthItems(kind) {
       .map(e => ({ id: e.id, date: e.date, title: e.title, cat: e.cat || '기타', amount: amtOf(e) }));
     for (let d = 1; d <= daysInMonth(y, m - 1); d++) {
       const ds = `${prefix}-${pad2(d)}`;
-      plannedOn(ds).forEach(p => rows.push({ date: ds, title: p.name, cat: p.cat || p.kind, amount: Number(p.amount) || 0, planned: true }));
+      plannedOn(ds).forEach(p => rows.push({ date: ds, title: p.name, cat: p.cat || p.kind, amount: Number(p.amount) || 0, planned: true, loan: !!p.loan }));
     }
     return rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.id || '').localeCompare(String(b.id || '')));
   }
@@ -1204,7 +1469,8 @@ function renderFinanceDetailModal(kind) {
     ? `<div class="chart-wrap">${donutSvg(rows, total)}<div class="chart-side">${chartLegendHtml(rows)}</div></div>`
     : `<div class="chart-empty">${m}월 ${meta.short} 내역이 없어서 보여줄 비율이 없어요 🩵</div>`;
   const notes = [];
-  if (items.some(i => i.planned)) notes.push('정기구독·구매예정 포함');
+  if (items.some(i => i.planned && !i.loan)) notes.push('정기구독·구매예정 포함');
+  if (items.some(i => i.loan)) notes.push('대출 상환 포함(15일 자동)');
   if (items.some(i => i.carry)) notes.push('잔액 이월 포함');
   const rowsHtml = items.length
     ? `<div class="fd-list">${items.map(i => {
@@ -1215,7 +1481,7 @@ function renderFinanceDetailModal(kind) {
         <span class="fd-date">${fmtDateShort(i.date)}</span>
         <span class="fd-title">${esc(i.title)}</span>
         <span class="fd-cat">${esc(i.cat || '기타')}</span>
-        ${i.planned ? '<span class="fd-flag">예정</span>' : ''}
+        ${i.planned ? `<span class="fd-flag${i.loan ? ' auto' : ''}">${i.loan ? '대출' : '예정'}</span>` : ''}
         <span class="fd-amt ${meta.pill}">${sign}₩${won(Math.abs(Number(i.amount) || 0))}</span>
       </div>`;
     }).join('')}</div>`
@@ -2100,6 +2366,62 @@ document.addEventListener('click', async ev => {
       commit(); break;
     }
 
+    /* 🏦 부채현황 (햇살론유스) */
+    case 'loan-del': {
+      const L = state.finance.loans;
+      L.rounds = (L.rounds || []).filter(x => x.id !== id);
+      commit(); toast('대출을 목록에서 지웠어요');
+      break;
+    }
+    case 'loan-edit': {
+      const L = state.finance.loans;
+      const l = (L.rounds || []).find(x => x.id === id); if (!l) break;
+      const r = await askPrompt({
+        title: `${l.round}회차 대출 수정`,
+        fields: [
+          { key: 'principal', label: '원금', value: l.principal, inputmode: 'numeric' },
+          { key: 'rate', label: '금리 (%)', value: String(Number(((Number(l.rate) || LOAN_RATE) * 100).toFixed(1))) },
+          { key: 'startDate', label: '대출일', type: 'date', value: l.startDate || '' },
+          { key: 'deferEnd', label: '거치 종료일', type: 'date', value: l.deferEnd || '' },
+          { key: 'repayStart', label: '원금상환 시작 (YYYY-MM)', value: l.repayStart || '' },
+          { key: 'months', label: '상환 개월', value: String(loanMonths(l)), inputmode: 'numeric' },
+        ],
+        confirmText: '저장',
+      });
+      if (!r) break;
+      const principal = clampNum(r.principal);
+      const months = Math.max(1, Math.min(600, clampNum(r.months) || loanMonths(l) || 1));
+      const repayStart = isYM(String(r.repayStart || '').trim()) ? String(r.repayStart).trim() : l.repayStart;
+      const rateNum = Number(String(r.rate || '').replace(/[^\d.]/g, ''));
+      Object.assign(l, {
+        principal: principal || l.principal,
+        rate: (rateNum > 0 ? rateNum : (Number(l.rate) || LOAN_RATE) * 100) / 100,
+        startDate: r.startDate || l.startDate,
+        deferEnd: r.deferEnd || l.deferEnd,
+        repayStart,
+        months,
+        repayEnd: ymAdd(repayStart, months - 1),
+      });
+      commit(); toast('대출 정보를 수정했어요 · 납부 금액이 다시 계산됐어요');
+      break;
+    }
+    case 'loan-defer-edit': {
+      const L = state.finance.loans;
+      const c = (L.deferCharges || []).find(x => x.id === id); if (!c) break;
+      const r = await askPrompt({
+        title: '거치기간 이자 수정',
+        fields: [
+          { key: 'name', label: '이름', value: c.name, full: true },
+          { key: 'amount', label: '월 이자', value: c.amount, inputmode: 'numeric' },
+        ],
+        confirmText: '저장',
+      });
+      if (!r) break;
+      c.name = (r.name || '').trim() || c.name;
+      c.amount = Math.abs(clampNum(r.amount)) || c.amount;
+      commit(); break;
+    }
+
     /* wishlist */
     case 'want-del': state.wish.want = state.wish.want.filter(x => x.id !== id); commit(); break;
     case 'want-edit': {
@@ -2840,6 +3162,8 @@ window.__GD = {
   financeMonthItems, chartParts, donutSvg,
   nextSubDate, subStartDate, savingCatOptions, catOptionsFor, savedOn, carryoverAmount, carryoverOn,
   monthFlow, renderAll,
+  loanRowsOn, loanChargeAt, loanMonthTotal, loanDateIn, loanRemaining, loanRemainingTotal,
+  loanTotalPrincipal, loanRepayEnd, loanStatusOf, debtSectionHtml, normalizeLoans,
   EXPENSE_CATS, INCOME_CATS,
   hour12, ampmOf, clockParts, renderClock,
   openCalendarModal, renderCalendarModal, monthAgenda,
