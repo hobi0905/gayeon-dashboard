@@ -470,9 +470,11 @@ ul{list-style:none;margin:0;padding:0;}
 .chip.trip{background:#fdf3e2;border-left-color:#f0dfb9;}
 .chip.work{background:#eeebf9;border-left-color:#d6ccef;}
 .cal-money{margin-top:auto;display:flex;flex-direction:column;gap:1px;}
-.cal-spend{font-size:9.5px;font-family:var(--font-num);font-weight:600;color:#5f93b8;}
-.cal-income{font-size:9.5px;font-family:var(--font-num);font-weight:600;color:#3f8f63;}
-.cal-plan{font-size:9.5px;font-family:var(--font-num);color:#b8925e;}
+.cal-spend{font-size:9.5px;font-family:var(--font-num);font-weight:600;color:#5f93b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cal-income{font-size:9.5px;font-family:var(--font-num);font-weight:600;color:#3f8f63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cal-plan{font-size:9.5px;font-family:var(--font-num);color:#b8925e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cal-save{font-size:9.5px;font-family:var(--font-num);font-weight:600;color:#4f8f86;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cal-carry{font-size:9.5px;font-family:var(--font-num);font-weight:600;color:#8b9aa7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cal-more{font-size:9px;color:#b8c8d4;}
 
 .cal-legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:10px;font-size:10.5px;color:#9aabb8;align-items:center;}
@@ -481,6 +483,7 @@ ul{list-style:none;margin:0;padding:0;}
 .dotc.trip{background:#fdf0d8;} .dotc.work{background:#e9e5f8;}
 .dotc.spend{background:#cfe3f4;} .dotc.plan{background:repeating-linear-gradient(45deg,#f3e5cc,#f3e5cc 2px,#fdf7ec 2px,#fdf7ec 4px);}
 .dotc.income{background:#d3efdf;}
+.dotc.saving{background:#cfe7e2;} .dotc.carry{background:#dfe6ec;}
 .legend-money{margin-left:auto;}
 
 /* ───────────── 큰 상세 캘린더 모달 ───────────── */
@@ -511,7 +514,7 @@ ul{list-style:none;margin:0;padding:0;}
 .calx-cell .dnum{font-size:13.5px;}
 .calx-cell.today .dnum{width:22px;height:22px;font-size:12.5px;}
 .calx-cell .cal-chips .chip{font-size:10px;padding:2px 6px;line-height:1.4;}
-.calx-cell .cal-spend,.calx-cell .cal-income,.calx-cell .cal-plan{font-size:10px;}
+.calx-cell .cal-spend,.calx-cell .cal-income,.calx-cell .cal-plan,.calx-cell .cal-save,.calx-cell .cal-carry{font-size:10px;}
 .calx-cell .cal-more{font-size:9.5px;}
 .calx-cell.sel{border-color:#8fb9d9;background:linear-gradient(180deg,#f2f9ff,#e9f4fe);box-shadow:0 0 0 2px #dceeff inset;}
 .calx-day .sec-head h3{font-size:15px;}
@@ -710,15 +713,19 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:.45;}
 .tag.발표{background:#fdf3e2;color:#ad8344;}
 .tag.done{background:#e8f5ec;color:#6f9b7f;}
 .tag.income{background:#e6f6ec;color:#47875f;}
+.tag.saving{background:#e6f2f0;color:#3f7a6e;}
+.tag.carry{background:#eff2f5;color:#7d8798;}
 .tag.soon{background:#fdf3e2;color:#b18b53;}
 .dday-pill{font-family:var(--font-num);font-size:12.5px;font-weight:600;color:#6f9dc2;background:#f2f9ff;border-radius:8px;padding:2px 8px;white-space:nowrap;}
 .dday-pill small{font-size:10.5px;font-weight:500;color:#9db4c5;}
 .dday-pill.past{color:#b3c0cb;background:#f7fafc;}
 .dday-pill.income{background:#eaf8f0;color:#3f8f63;}
+.dday-pill.saving{background:#eaf5f3;color:#3f7a6e;}
 .dday-pill.plan{background:#fdf6ec;color:#a9865a;}
 .money-type{width:100%;}
 .money-cat{width:100%;}
 .money-form.is-income .btn.primary{background:#e2f5e9;border-color:#bfe5cd;color:#3d7a57;}
+.money-form.is-saving .btn.primary{background:#e4f3f0;border-color:#bfe0d9;color:#3d7a6e;}
 
 .empty{
   font-size:13.5px;color:#b3c2ce;text-align:center;padding:16px 8px;
@@ -734,6 +741,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:.45;}
 .stat-sub{font-size:11.5px;color:#a2917d;margin-top:1px;font-family:var(--font-num);}
 .stat.spend .v{color:#4d7fa3;}
 .stat.plan .v{color:#a9865a;}
+.stat.saving .v{color:#3f7a6e;}
 .stat.income .v{color:#3f8f63;}
 .stat.balance .v{color:#416e8c;}
 .stat.balance.neg .v{color:#b4585f;}
@@ -789,6 +797,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:.45;}
 .fd-amt{font-family:var(--font-num);font-weight:600;font-size:13.5px;color:#6f9dc2;white-space:nowrap;flex:none;}
 .fd-amt.income{color:#3f8f63;}
 .fd-amt.plan{color:#a9865a;}
+.fd-amt.saving{color:#3f7a6e;}
+.fd-flag{flex:none;font-size:10.5px;color:#a9865a;background:#fdf6ec;border-radius:999px;padding:1px 7px;white-space:nowrap;}
 
 /* ───────────── weather 10-day modal ───────────── */
 .wxm-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-2px;}
@@ -868,9 +878,11 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:.45;}
 .fcal-day .dn{font-family:var(--font-num);font-weight:600;font-size:12px;color:#5d7488;}
 .fcal-day.today{border-color:#a9cee9;background:#f2f9ff;}
 .fcal-day.sel{border-color:#8fb9d9;background:#eaf5fe;box-shadow:0 0 0 1px #cbe4f7 inset;}
-.fcal-day .sp{font-family:var(--font-num);color:#568cb0;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.fcal-day .inc{font-family:var(--font-num);color:#3f8f63;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.fcal-day .pl{font-family:var(--font-num);color:#b08a55;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fcal-day .sp{font-family:var(--font-num);color:#568cb0;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.fcal-day .inc{font-family:var(--font-num);color:#3f8f63;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.fcal-day .pl{font-family:var(--font-num);color:#b08a55;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.fcal-day .sv{font-family:var(--font-num);color:#4f8f86;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.fcal-day .cy{font-family:var(--font-num);color:#8b9aa7;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
 
 /* goal cards */
 .goal-card{background:#fff;border:1px solid #eef5fb;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:7px;}
@@ -1260,6 +1272,8 @@ body[data-theme="xmas"] .chip.trip{background:#faeed3;border-left-color:#dcbb7c;
 body[data-theme="xmas"] .chip.work{background:#f0e6da;border-left-color:#c5a98b;color:#6b5138;}
 body[data-theme="xmas"] .cal-spend{color:#a9373f;}
 body[data-theme="xmas"] .cal-income{color:#3f7a55;}
+body[data-theme="xmas"] .cal-save{color:#3f7a63;}
+body[data-theme="xmas"] .cal-carry{color:#a68f72;}
 body[data-theme="xmas"] .cal-plan{color:#a97f3e;}
 body[data-theme="xmas"] .cal-more{color:#c3b198;}
 body[data-theme="xmas"] .cal-legend{color:#a2917d;}
@@ -1267,6 +1281,7 @@ body[data-theme="xmas"] .dotc.study{background:#dfe9d8;} body[data-theme="xmas"]
 body[data-theme="xmas"] .dotc.health{background:#e2efdb;} body[data-theme="xmas"] .dotc.trip{background:#f7e8c9;}
 body[data-theme="xmas"] .dotc.work{background:#eddfd0;} body[data-theme="xmas"] .dotc.spend{background:#e3b9b5;}
 body[data-theme="xmas"] .dotc.income{background:#bcdcc6;}
+body[data-theme="xmas"] .dotc.saving{background:#c3dcc9;} body[data-theme="xmas"] .dotc.carry{background:#e6d8c2;}
 body[data-theme="xmas"] .dotc.plan{background:repeating-linear-gradient(45deg,#dcc09a,#dcc09a 2px,#faf1e1 2px,#faf1e1 4px);}
 
 /* footer / badge */
@@ -1325,8 +1340,11 @@ body[data-theme="xmas"] .tag.soon{background:#faeed3;color:#9a7434;}
 body[data-theme="xmas"] .dday-pill{background:#f7eedf;color:#a97f3e;}
 body[data-theme="xmas"] .dday-pill.past{background:#faf5ec;color:#b8a790;}
 body[data-theme="xmas"] .dday-pill.income{background:#eaf4ec;color:#2f6b48;}
+body[data-theme="xmas"] .dday-pill.saving{background:#e6f0e4;color:#3f6b55;}
 body[data-theme="xmas"] .dday-pill.plan{background:#f7eedf;color:#a97f3e;}
 body[data-theme="xmas"] .tag.income{background:#e5f1e5;color:#3f6b4d;}
+body[data-theme="xmas"] .tag.saving{background:#e6f0e4;color:#3f6b55;}
+body[data-theme="xmas"] .tag.carry{background:#f1eadc;color:#8a7856;}
 body[data-theme="xmas"] .empty{background:#fffbf3;border-color:#f0e3d1;color:#b8a58d;}
 body[data-theme="xmas"] .stat{background:linear-gradient(160deg,#fffbf3,#fffdf8);border-color:#f1e5d3;}
 body[data-theme="xmas"] .stat .k{color:#ac9a85;}
@@ -1334,11 +1352,13 @@ body[data-theme="xmas"] .stat .v{color:#3f6b4d;}
 body[data-theme="xmas"] .stat .v small{color:#a2917d;}
 body[data-theme="xmas"] .stat.spend .v{color:#a9373f;}
 body[data-theme="xmas"] .stat.plan .v{color:#a97f3e;}
+body[data-theme="xmas"] .stat.saving .v{color:#3f6b55;}
 body[data-theme="xmas"] .stat.income .v{color:#2c6049;}
 body[data-theme="xmas"] .stat.balance .v{color:#2f5040;}
 body[data-theme="xmas"] .stat.balance.neg .v{color:#a9373f;}
 body[data-theme="xmas"] .fin-subs-line{color:#a2917d;}
 body[data-theme="xmas"] .money-form.is-income .btn.primary{background:#2c6049;border-color:#2c6049;color:#fbf3e3;}
+body[data-theme="xmas"] .money-form.is-saving .btn.primary{background:#3f6b55;border-color:#3f6b55;color:#fbf3e3;}
 body[data-theme="xmas"] .stat-sub{color:#a97f3e;}
 body[data-theme="xmas"] .fcal .wd{color:#ab9a84;}
 body[data-theme="xmas"] .fcal-day{background:#fffbf3;border-color:#f2e7d6;}
@@ -1348,6 +1368,8 @@ body[data-theme="xmas"] .fcal-day.sel{border-color:#2c6049;background:#f7eedf;bo
 body[data-theme="xmas"] .fcal-day .dn{color:#6a5c49;}
 body[data-theme="xmas"] .fcal-day .sp{color:#a9373f;}
 body[data-theme="xmas"] .fcal-day .inc{color:#2f6b48;}
+body[data-theme="xmas"] .fcal-day .sv{color:#3f6b55;}
+body[data-theme="xmas"] .fcal-day .cy{color:#a68f72;}
 body[data-theme="xmas"] .fcal-day .pl{color:#a97f3e;}
 body[data-theme="xmas"] .goal-card{background:#fffdf8;border-color:#f2e7d6;}
 body[data-theme="xmas"] .goal-name{color:#3f5b45;}
@@ -1459,3 +1481,5 @@ body[data-theme="xmas"] .fd-cat{background:#f7eedf;color:#a97f3e;}
 body[data-theme="xmas"] .fd-amt{color:#a97f3e;}
 body[data-theme="xmas"] .fd-amt.income{color:#2f6b48;}
 body[data-theme="xmas"] .fd-amt.plan{color:#a97f3e;}
+body[data-theme="xmas"] .fd-amt.saving{color:#3f6b55;}
+body[data-theme="xmas"] .fd-flag{background:#f7eedf;color:#a97f3e;}

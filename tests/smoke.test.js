@@ -292,9 +292,10 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   const subPlanRow = $$('#modalBody .drow').find(r => calText(r).includes('테스트 구독'));
   ok(!!subPlanRow && /−₩9,900/.test(calText(subPlanRow)), '가계부 날짜 패널 정기구독 행 −₩9,900', calText(subPlanRow));
   ok(!!subPlanRow && !!subPlanRow.querySelector('.dday-pill.plan'), '예정 금액 알약은 .plan 클래스(예정 색)', subPlanRow && subPlanRow.querySelector('.dday-pill').className);
-  const planStatV = $('#modalBody .stat.plan .v');
-  ok(!!planStatV && /−₩68,900/.test(calText(planStatV)), '예정 지출 요약 카드 −₩68,900', calText(planStatV));
-  ok(!/\+/.test(calText(planStatV)) && !/\+/.test(calText(subPlanRow)), '예정 금액에 플러스 기호 없음');
+  const spendStatV = $('#modalBody .stat.spend .v');
+  ok(!!spendStatV && /−₩68,900/.test(calText(spendStatV)), '이번 달 지출 카드에 예정 금액(68,900)이 합산됨', calText(spendStatV));
+  ok(!/\+/.test(calText(spendStatV)) && !/\+/.test(calText(subPlanRow)), '지출·예정 금액에 플러스 기호 없음');
+  ok(!$('#modalBody .stat.plan'), '「예정 지출」 카드는 사라짐');
 
   console.log('▸ 정기구독 주기 (매달 / 매년)');
   const subForm2 = $('#modalBody [data-form="sub"]');
@@ -358,28 +359,29 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
 
   const statRow = $('#modalBody .stat-row');
   const statText = statRow.textContent.replace(/\s+/g, ' ');
-  ok(statText.includes('이번 달 수입') && statText.includes('이번 달 지출') && statText.includes('예정 지출') && statText.includes('수입 - 지출'), '요약 4칸(수입·지출·예정·잔액)', statText);
+  ok(statText.includes('이번 달 수입') && statText.includes('이번 달 지출') && statText.includes('저축') && statText.includes('수입 - 지출 - 투자'), '요약 4칸(수입·지출·저축·남은 돈)', statText);
   const fstats = w.__GD.financeStats();
   ok(fstats.income === 620000 && fstats.spent === 8500, '이번 달 수입·지출 합계', JSON.stringify(fstats));
-  ok(fstats.balance === fstats.income - fstats.spent, '잔액 = 수입 - 지출', fstats.balance);
+  ok(fstats.balance === fstats.income - fstats.spendTotal - fstats.saved, '남은 돈 = 수입 - 지출(예정 포함) - 저축·투자', fstats.balance);
   ok(statRow.querySelector('.stat.income .v').textContent.includes('620,000'), '요약에 이번 달 수입 표시');
-  ok(statRow.querySelector('.stat.balance .v').textContent.includes(wonNum(fstats.balance)), '요약에 잔액 표시', statRow.querySelector('.stat.balance .v').textContent);
+  ok(statRow.querySelector('.stat.balance .v').textContent.includes(wonNum(fstats.balance)), '요약에 남은 돈 표시', statRow.querySelector('.stat.balance .v').textContent);
   ok($('#modalBody').textContent.includes('＋₩620,000'), '날짜 목록에 수입 +₩ 표시');
 
-  console.log('▸ 정기구독이 수입·잔액에 새지 않는지 (합계 회귀)');
+  console.log('▸ 정기구독이 수입에 새지 않는지 (합계 회귀)');
   ok(fstats.income === 620000, '이번 달 수입 합계에 정기구독·구매예정이 섞이지 않음', fstats.income);
-  ok(fstats.spent === 8500, '이번 달 지출은 실제 기록만', fstats.spent);
-  ok(fstats.planned === 68900 + 4321, '정기구독·구매예정은 예정 지출로만 합산(68,900 + 4,321)', fstats.planned);
-  ok(fstats.balance === fstats.income - fstats.spent, '잔액 = 수입 - 지출 (예정 미포함)', fstats.balance);
-  ok(fstats.balance === 620000 - 8500, '잔액 611,500 (예정 지출이 더해지지 않음)', fstats.balance);
+  ok(fstats.spent === 8500, '이번 달 지출 내역은 실제 기록만(spent)', fstats.spent);
+  ok(fstats.spendTotal === 8500 + 68900 + 4321, '이번 달 지출 카드 = 실제 + 정기구독·구매예정', fstats.spendTotal);
+  ok(fstats.planned === 68900 + 4321, '정기구독·구매예정 합계(68,900 + 4,321)', fstats.planned);
+  ok(fstats.balance === 620000 - 81721, '남은 돈 538,279 (지출 카드 기준: 예정 포함)', fstats.balance);
   const incTitles = w.__GD.financeMonthItems('income').map(i => i.title);
   ok(incTitles.length === 1 && incTitles[0] === '테스트 월급', '수입 상세에는 실제 수입만(구독·구매예정 없음)', incTitles.join(','));
-  const planTitles = w.__GD.financeMonthItems('plan').map(i => i.title);
-  ok(planTitles.includes('테스트 구독') && planTitles.includes('테스트 이어폰') && !planTitles.includes('테스트 월급'), '예정 지출 상세에 구독·구매예정만', planTitles.join(','));
+  const spendItems = w.__GD.financeMonthItems('spend');
+  const planTitles = spendItems.filter(i => i.planned).map(i => i.title);
+  ok(planTitles.includes('테스트 구독') && planTitles.includes('테스트 이어폰') && !planTitles.includes('테스트 월급'), '이번 달 지출 상세에 구독·구매예정도 포함', planTitles.join(','));
   const incStatV = $('#modalBody .stat.income .v').textContent;
-  const planStatV2 = $('#modalBody .stat.plan .v').textContent;
+  const spendStatV2 = $('#modalBody .stat.spend .v').textContent;
   ok(incStatV.includes(wonNum(620000)) && !incStatV.includes(wonNum(fstats.planned)), '수입 카드에 예정 지출 금액 없음', incStatV);
-  ok(/−₩73,221/.test(planStatV2.replace(/\s+/g, ' ')) && !/\+/.test(planStatV2), '예정 지출 카드 −₩73,221 (플러스 아님)', planStatV2.trim());
+  ok(/−₩81,721/.test(spendStatV2.replace(/\s+/g, ' ')) && !/\+/.test(spendStatV2), '이번 달 지출 카드 −₩81,721 (실제 8,500 + 예정 73,221 · 플러스 아님)', spendStatV2.trim());
   const dayPanelPlan = $$('#modalBody .drow').find(r => calText(r).includes('테스트 이어폰'));
   ok(!!dayPanelPlan && /−₩59,000/.test(calText(dayPanelPlan)), '선택한 날짜 예정 행도 −₩59,000', calText(dayPanelPlan));
 
@@ -736,7 +738,7 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.habit-grid \.hn \.hx,\.habit-grid \.hn \.he\{[^}]*opacity:0/.test(css), '습관 수정·삭제 버튼 스타일');
   ok(/\.note-card \.ntag\{/.test(css), '메모 태그 스타일');
   const html2 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  ok(/styles\.css\?v=29/.test(html2) && /app\.js\?v=23/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
+  ok(/styles\.css\?v=30/.test(html2) && /app\.js\?v=24/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
 
   console.log('▸ 홈 이달의 목표 연동');
   click($('[data-act="modal-close"]'));
@@ -857,7 +859,7 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   const incomeCard = $('#modalBody .stat.income');
   ok(!!incomeCard && incomeCard.dataset.act === 'fin-detail' && incomeCard.dataset.kind === 'income', '이번 달 수입 카드가 클릭 가능한 버튼');
   ok(!!incomeCard && /상세/.test(incomeCard.textContent), '카드에 상세 보기 힌트', incomeCard && incomeCard.textContent.replace(/\s+/g, ' '));
-  ok(!!$('#modalBody .stat.spend[data-act="fin-detail"]') && !!$('#modalBody .stat.plan[data-act="fin-detail"]'), '지출·예정 지출 카드도 클릭 가능');
+  ok(!!$('#modalBody .stat.spend[data-act="fin-detail"]') && !!$('#modalBody .stat.saving[data-act="fin-detail"]'), '지출·저축 카드도 클릭 가능');
 
   click(incomeCard);
   ok(!$('#modalRoot').hidden && /수입 상세/.test($('#modalTitle').textContent), '수입 카드 → 이번 달 수입 상세 팝업', $('#modalTitle').textContent);
@@ -866,7 +868,7 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(incDetail.includes('알바·급여') && incDetail.includes('용돈'), '상세에 카테고리 표시');
   ok(incDetail.includes('알바·급여 40%') && incDetail.includes('용돈 60%'), '카테고리별 퍼센트(알바·급여 40% · 용돈 60%)', incDetail.slice(0, 140));
   ok(!!$('#modalBody svg.donut'), '상세 최상단 원형(도넛) 그래프');
-  ok($$('#modalBody .donut .dseg').length === 2, '카테고리 수만큼 도넛 조각', $$('#modalBody .donut .dseg').length);
+  ok($$('#modalBody .donut .dseg').length === 3, '카테고리 수(잔액 포함 3)만큼 도넛 조각', $$('#modalBody .donut .dseg').length);
   const legendPc = $$('#modalBody .chart-legend .pc').map(e => parseInt(e.textContent, 10));
   ok(legendPc.reduce((a, b) => a + b, 0) === 100, '범례 퍼센트 합 100', legendPc.join(','));
   ok($('#modalBody').textContent.includes('₩620,000') && $('#modalBody').textContent.includes('₩930,000'), '범례에 카테고리별 금액');
@@ -882,13 +884,22 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/지출 상세/.test($('#modalTitle').textContent), '지출 카드 → 이번 달 지출 상세', $('#modalTitle').textContent);
   ok($('#modalBody').textContent.includes('식비') && $('#modalBody').textContent.includes('8,500'), '지출 상세에 식비 내역');
   click($('[data-act="modal-close"]'));
-  click($('#modalBody .stat.plan'));
-  ok(/예정 지출 상세/.test($('#modalTitle').textContent), '예정 지출 카드 → 예정 상세', $('#modalTitle').textContent);
-  ok($('#modalBody').textContent.includes('구매예정') && $('#modalBody').textContent.includes('정기구독'), '예정 상세에 구매예정·정기구독');
-  ok($$('#modalBody .fd-row').length >= 2, '예정 상세 행', $$('#modalBody .fd-row').length);
+  click($('#modalBody .stat.saving'));
+  ok(/저축·투자 상세/.test($('#modalTitle').textContent), '저축 카드 → 이번 달 저축·투자 상세', $('#modalTitle').textContent);
+  ok($('#modalBody').textContent.includes('보여줄 비율이 없어요'), '저축 내역 0건 → 빈 상태 안내', $('#modalBody').textContent.replace(/\s+/g, ' ').slice(0, 90));
   click($('[data-act="modal-close"]'));
 
+  /* 이월은 실제 내역이 있는 달의 다음 달에만 — 1월은 12월 잔액, 2월은 이월 없음 */
   click($('[data-act="fin-next"]'));
+  const janCarry = w.__GD.carryoverAmount(2027, 1);
+  ok(janCarry === 1550779 - 81721, '1월 이월 = 12월 수입(잔액 779 포함) − 지출(예정 포함) = 1,469,058', janCarry);
+  const jan1 = $$('.fcal-day').find(c => c.dataset.date === '2027-01-01');
+  ok(!!jan1 && jan1.textContent.includes('1,469,058'), '1월 1일 칸에 잔액 표시', jan1 && jan1.textContent);
+  click($('#modalBody .stat.income'));
+  ok($('#modalBody').textContent.includes('잔액') && $('#modalBody').textContent.includes('1,469,058'), '1월 수입 상세에 잔액 카테고리');
+  click($('[data-act="modal-close"]'));
+  click($('[data-act="fin-next"]'));
+  ok(w.__GD.carryoverAmount(2027, 2) === 0, '1월에 내역이 없으면 2월로는 이월하지 않음', w.__GD.carryoverAmount(2027, 2));
   click($('#modalBody .stat.income'));
   ok($('#modalBody').textContent.includes('보여줄 비율이 없어요') && !$('#modalBody svg.donut'), '내역 0건 → 빈 상태 안내', $('#modalBody').textContent.replace(/\s+/g, ' ').slice(0, 90));
   click($('[data-act="modal-close"]'));
@@ -971,6 +982,206 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.calx-cell \.cal-chips \.chip\{width:6px;height:6px/.test(css), '모바일 큰 달력은 일정을 점으로');
   ok(/\.cal-title-btn\{[^}]*cursor:pointer/.test(css), '캘린더 제목 클릭 가능 스타일');
   ok(/body\[data-theme="xmas"\] \.cal-open-pill\{/.test(css), '크리스마스 테마 크게 보기 배지');
+
+  /* ══════════════════════════════════════════════════════════════
+     가계부 실전 개편 — ① 다음 결제일 시작월 ② 예정 지출 통합
+     ③ 저축 카드·투자 연동·수입-지출-투자 ④ 전달 잔액 이월
+     ══════════════════════════════════════════════════════════════ */
+  if (!$('#modalRoot').hidden) click($('[data-act="modal-close"]'));
+  const FIN = w.__GD.state.finance;
+  let seq = 0;
+  const mkRow = o => Object.assign({ id: `fx${++seq}` }, o);
+  FIN.expenses = [
+    mkRow({ date: '2026-11-10', title: '월급', amount: 1000000, cat: '알바·급여', type: 'income' }),
+    mkRow({ date: '2026-11-15', title: '장보기', amount: 300000, cat: '생활', type: 'expense' }),
+    mkRow({ date: '2026-11-20', title: '비상금 적립', amount: 200000, cat: '[목표] 비상금 모으기', type: 'saving' }),
+  ];
+  FIN.subs = [];
+  FIN.planned = [];
+  FIN.goals = [mkRow({ name: '비상금 모으기', target: 3000000, saved: 200000, deadline: '' })];
+  FIN.invest = [mkRow({ name: '테슬라', stance: '보유', memo: '' })];
+  click($('[data-act="open-finance"]'));
+  click($('[data-act="fin-today"]'));
+
+  console.log('▸ ④ 전달 잔액 → 다음 달 1일 「잔액」 이월');
+  let st = w.__GD.financeStats();
+  ok(st.carry === 0, '④ 첫 기록 달(11월)에는 이월 없음', st.carry);
+  ok(st.income === 1000000 && st.spent === 300000 && st.saved === 200000, '④ 11월 수입·지출·저축 구분 집계', JSON.stringify(st));
+  ok(st.balance === 500000, '④ 11월 남은 돈 = 1,000,000 − 300,000 − 200,000', st.balance);
+  ok(w.__GD.carryoverOn('2026-11-01') === 0, '④ 11월 1일에는 이월 없음');
+  ok(w.__GD.carryoverAmount(2026, 12) === 500000, '④ 12월 이월액 = 11월 잔액 500,000', w.__GD.carryoverAmount(2026, 12));
+  ok(w.__GD.carryoverOn('2026-12-01') === 500000 && w.__GD.carryoverOn('2026-12-02') === 0, '④ 잔액은 그 달 1일에만 얹힘');
+  ok(w.__GD.carryoverAmount(2027, 2) === 0 && w.__GD.carryoverAmount(2027, 7) === 0, '④ 내역 없는 먼 달로 빈 이월이 번지지 않음');
+  ok(!w.__GD.state.finance.expenses.some(e => e.cat === '잔액'), '④ 잔액은 저장되지 않고 계산으로만 붙음');
+  const incItemsNov = w.__GD.financeMonthItems('income');
+  ok(incItemsNov.length === 1 && incItemsNov[0].title === '월급', '④ 11월 수입 상세에는 잔액 없음', incItemsNov.map(i => i.title).join(','));
+
+  click($('[data-act="fin-next"]'));
+  ok($('#finMonthLabel').textContent.includes('12월'), '④ 가계부 12월로 이동');
+  const dec1Cell = () => $$('.fcal-day').find(c => c.dataset.date === '2026-12-01');
+  ok(!!dec1Cell().querySelector('.cy') && dec1Cell().querySelector('.cy').textContent.includes('500,000'), '④ 12월 1일 칸에 잔액 500,000', dec1Cell().textContent.replace(/\s+/g, ' '));
+  ok(/＋₩500,000/.test(calText($('#modalBody .stat.income .v'))), '④ 이번 달 수입 카드에 잔액 포함', calText($('#modalBody .stat.income')));
+  ok(/전달 잔액/.test($('#modalBody').textContent) && /＋₩500,000/.test($('#modalBody').textContent), '④ 카드·내역에 전달 잔액 표시');
+  click($('.fcal-day[data-date="2026-12-01"]'));
+  const carryRow = $$('#modalBody .drow').find(r => r.querySelector('.tag.carry'));
+  ok(!!carryRow && /＋₩500,000/.test(calText(carryRow)), '④ 날짜 패널에 「잔액」 행', carryRow && calText(carryRow));
+  ok(!carryRow.querySelector('[data-act="exp-edit"]') && !carryRow.querySelector('[data-act="exp-del"]'), '④ 잔액 행은 수정·삭제 불가');
+
+  console.log('▸ ① 정기구독 다음 결제일 기준 시작월');
+  click($('[data-act="fin-today"]'));
+  const addSub = (name, amount, cycle, month, day) => {
+    const f = $('#modalBody [data-form="sub"]');
+    fld(f, 'name').value = name;
+    fld(f, 'amount').value = String(amount);
+    fld(f, 'cycle').value = cycle;
+    fld(f, 'month').value = String(month);
+    fld(f, 'day').value = String(day);
+    submit(f);
+  };
+  addSub('넷플릭스', 17000, 'monthly', 1, 10);
+  const subNetflix = w.__GD.state.finance.subs.find(s => s.name === '넷플릭스');
+  ok(!!subNetflix && subNetflix.startDate === '2026-12-10', '① 매달 10일 — 11/28 등록이면 첫 결제 12/10', subNetflix && subNetflix.startDate);
+  ok(!w.__GD.plannedOn('2026-11-10').some(p => p.name === '넷플릭스'), '① 11월에는 표시되지 않음');
+  ok(w.__GD.plannedOn('2026-12-10').some(p => p.name === '넷플릭스' && p.amount === 17000), '① 12월 10일에 표시');
+  ok(/12월부터/.test($('#modalBody').textContent), '① 구독 목록에 「12월부터」 표시');
+
+  addSub('29일 구독', 9900, 'monthly', 1, 29);
+  const sub29 = w.__GD.state.finance.subs.find(s => s.name === '29일 구독');
+  ok(!!sub29 && sub29.startDate === '2026-11-29', '① 매달 29일 — 이번 달 11/29부터', sub29 && sub29.startDate);
+  ok(w.__GD.plannedOn('2026-11-29').some(p => p.name === '29일 구독'), '① 11월 29일에 표시');
+
+  addSub('연간 구독', 120000, 'yearly', 3, 15);
+  const subYear = w.__GD.state.finance.subs.find(s => s.name === '연간 구독');
+  ok(!!subYear && subYear.startDate === '2027-03-15', '① 매년 3/15 — 내년 3/15부터', subYear && subYear.startDate);
+  ok(!w.__GD.plannedOn('2026-12-15').some(p => p.name === '연간 구독') && w.__GD.plannedOn('2027-03-15').some(p => p.name === '연간 구독'), '① 매년 구독은 3/15에만');
+
+  const normOld = w.__GD.normalize({ v: 3, finance: { subs: [{ id: 's1', name: '옛 구독', amount: 1000, day: 10, cycle: 'monthly', active: true }] } });
+  ok(normOld.finance.subs[0].startDate === '2026-12-10', '① startDate 없는 기존 구독 → 12/10으로 자동 보정', normOld.finance.subs[0].startDate);
+  const normOld29 = w.__GD.normalize({ v: 3, finance: { subs: [{ id: 's2', name: '옛 구독2', amount: 1000, day: 29, cycle: 'monthly', active: true }] } });
+  ok(normOld29.finance.subs[0].startDate === '2026-11-29', '① 지난 결제일은 소급 표시되지 않고 11/29는 남김', normOld29.finance.subs[0].startDate);
+  const normCreated = w.__GD.normalize({ v: 3, finance: { subs: [{ id: 's3', name: '옛 구독3', amount: 1000, day: 5, cycle: 'monthly', active: true, createdAt: '2026-12-20' }] } });
+  ok(normCreated.finance.subs[0].startDate === '2027-01-05', '① createdAt이 있으면 그 날 기준 다음 결제일', normCreated.finance.subs[0].startDate);
+  const normKeep = w.__GD.normalize({ v: 3, finance: { subs: [{ id: 's4', name: '옛 구독4', amount: 1000, day: 5, cycle: 'monthly', active: true, startDate: '2027-05-05' }] } });
+  ok(normKeep.finance.subs[0].startDate === '2027-05-05', '① 이미 있는 startDate는 그대로 둠');
+
+  /* ②③④ 계산을 단순하게 — 12/10 구독만 남기고 ④ return */
+  FIN.subs = FIN.subs.filter(s => s.name === '넷플릭스');
+  click($('[data-act="fin-today"]'));
+  ok(w.__GD.financeStats().spent === 300000 && w.__GD.financeStats().saved === 200000, '11월 집계 복귀(구독 정리 후)');
+
+  console.log('▸ ② 예정 지출 카드 제거 → 이번 달 지출로 통합');
+  FIN.planned = [mkRow({ name: '생일 선물', date: '2026-12-05', amount: 50000, needId: null })];
+  click($('[data-act="fin-next"]'));
+  const moneyCards = $$('#modalBody .stat-row.money .stat');
+  ok(moneyCards.length === 4, '② 요약 카드는 4칸', moneyCards.length);
+  ok(!$('#modalBody .stat-row.money .stat.plan'), '② 「예정 지출」 카드 없음');
+  ok(!!$('#modalBody .stat-row.money .stat.saving') && !!$('#modalBody .stat-row.money .stat.balance'), '② 저축·남은 돈 카드 존재');
+  const decStats = w.__GD.financeStats();
+  ok(decStats.planned === 67000, '② 12월 예정 = 구독 17,000 + 구매예정 50,000', decStats.planned);
+  ok(decStats.spendTotal === 67000 && decStats.spent === 0, '② 이번 달 지출 카드 = 실제 0 + 예정 67,000', JSON.stringify(decStats));
+  ok(/−₩67,000/.test(calText($('#modalBody .stat.spend .v'))), '② 이번 달 지출 카드에 예정 합산', calText($('#modalBody .stat.spend')));
+  ok(/예정 67,000 포함/.test($('#modalBody .stat.spend').textContent), '② 카드에 「예정 포함」 안내');
+  click($('#modalBody .stat.spend'));
+  const spendDetail = calText($('#modalBody'));
+  ok(/지출 상세/.test($('#modalTitle').textContent), '② 지출 상세 팝업');
+  ok(spendDetail.includes('넷플릭스') && spendDetail.includes('생일 선물'), '② 상세 내역에 구독·구매예정 포함', spendDetail.slice(0, 160));
+  ok(spendDetail.includes('정기구독') && spendDetail.includes('구매예정'), '② 카테고리에 정기구독·구매예정');
+  ok($$('#modalBody .fd-flag').length === 2, '② 예정 행에 「예정」 표시', $$('#modalBody .fd-flag').length);
+  ok(/정기구독·구매예정 포함/.test(spendDetail), '② 상세에 통합 안내');
+  const spendRows = $$('#modalBody .fd-row');
+  ok(spendRows.length === 2, '② 상세 행 2개', spendRows.length);
+  click($('[data-act="modal-close"]'));
+
+  console.log('▸ ③ 저축 카드 · 투자 항목 연동 · 수입-지출-투자');
+  click($('.fcal-day[data-date="2026-12-20"]'));
+  const saveForm = $('#modalBody [data-form="expense"]');
+  const typeSelSave = fld(saveForm, 'type');
+  ok(Array.from(typeSelSave.options).map(o => o.textContent).join(',') === '지출,수입,저축', '③ 내역 등록 종류 = 지출·수입·저축');
+  typeSelSave.value = 'saving';
+  typeSelSave.dispatchEvent(new w.Event('change', { bubbles: true }));
+  const saveCats = Array.from(fld(saveForm, 'cat').querySelectorAll('option')).map(o => o.textContent);
+  ok(saveCats.includes('[목표] 비상금 모으기') && saveCats.includes('[주식] 테슬라'), '③ 저축 카테고리 = 📈 투자 탭 항목 자동 연동', saveCats.join(','));
+  ok(saveForm.classList.contains('is-saving'), '③ 저축 모드 표시');
+  fld(saveForm, 'title').value = '비상금 넣기';
+  fld(saveForm, 'amount').value = '150000';
+  fld(saveForm, 'cat').value = '[목표] 비상금 모으기';
+  submit(saveForm);
+  const savedEntry = w.__GD.state.finance.expenses.find(e => e.title === '비상금 넣기');
+  ok(!!savedEntry && savedEntry.type === 'saving' && savedEntry.cat === '[목표] 비상금 모으기', '③ 저축 내역 저장', savedEntry && JSON.stringify(savedEntry));
+  const dec2 = w.__GD.financeStats();
+  ok(dec2.saved === 150000, '③ 이번 달 저축·투자 = 150,000', dec2.saved);
+  ok(dec2.spendTotal === 67000 && dec2.spent === 0, '③ 저축은 이번 달 지출에 섞이지 않음', JSON.stringify(dec2));
+  ok(!w.__GD.financeMonthItems('spend').some(i => i.title === '비상금 넣기'), '③ 저축은 지출 상세에도 없음');
+  const saveCard = $('#modalBody .stat.saving');
+  ok(/↗₩150,000/.test(calText(saveCard)), '③ 저축 카드 ↗₩150,000', calText(saveCard));
+  ok(calText(saveCard).includes('[목표] 비상금 모으기'), '③ 저축 카드에 대표 항목');
+  ok(/수입 - 지출 - 투자/.test($('#modalBody .stat.balance').textContent), '③ 4번째 카드 이름 = 수입 - 지출 - 투자');
+  ok(/283,000/.test(calText($('#modalBody .stat.balance'))), '③ 수입 - 지출 - 투자 = 500,000 − 67,000 − 150,000', calText($('#modalBody .stat.balance')));
+  click($('#modalBody .stat.saving'));
+  ok(/저축·투자 상세/.test($('#modalTitle').textContent), '③ 저축 카드 → 도넛 상세 팝업', $('#modalTitle').textContent);
+  ok(!!$('#modalBody svg.donut') && $$('#modalBody .donut .dseg').length === 1, '③ 저축 카테고리 1조각', $$('#modalBody .donut .dseg').length);
+  ok(/\[목표\] 비상금 모으기 100%/.test(calText($('#modalBody'))), '③ 저축 상세 100%');
+  ok(/↗₩150,000/.test(calText($('#modalBody .fd-amt'))), '③ 상세 행 금액 ↗₩150,000', calText($('#modalBody .fd-amt')));
+  click($('[data-act="modal-close"]'));
+
+  /* 투자 탭에 항목이 하나도 없을 때 기본값 */
+  const goalsBak = FIN.goals, investBak = FIN.invest;
+  FIN.goals = []; FIN.invest = [];
+  ok(w.__GD.savingCatOptions().join(',') === '재무목표,주식투자', '③ 항목이 없으면 기본 재무목표·주식투자', w.__GD.savingCatOptions().join(','));
+  FIN.goals = goalsBak; FIN.invest = investBak;
+
+  /* 날짜 상세 모달에서도 저축 유형·수정 창 */
+  click($('[data-act="modal-close"]'));
+  click($('[data-act="cal-next"]'));
+  const homeDec20 = $$('.cal-cell').find(c => c.dataset.date === '2026-12-20');
+  click(homeDec20);
+  ok(/12월 20일/.test($('#modalTitle').textContent), '③ 날짜 상세 모달 열림', $('#modalTitle').textContent);
+  const dayType = fld($('#modalBody [data-form="expense"]'), 'type');
+  ok(Array.from(dayType.options).map(o => o.textContent).includes('저축'), '③ 날짜 상세 폼에도 저축 유형');
+  const savedRow = $$('#modalBody .drow').find(r => r.textContent.includes('비상금 넣기'));
+  ok(!!savedRow && !!savedRow.querySelector('.tag.saving') && !!savedRow.querySelector('.dday-pill.saving'), '③ 날짜 상세 저축 행: 저축 태그 · ↗ 알약', savedRow && calText(savedRow));
+  ok(/↗₩150,000/.test(calText(savedRow)), '③ 날짜 상세 금액 ↗₩150,000');
+  ok(/저축 ₩150,000/.test(calText($('#modalBody'))), '③ 날짜 요약줄에 저축 합계', calText($('#modalBody')).slice(0, 120));
+  click(savedRow.querySelector('[data-act="exp-edit"]'));
+  await tick();
+  const ep = doc.querySelector('.prompt');
+  ok(!!ep && /내역 수정/.test(ep.textContent), '③ 내역 수정 창');
+  const epType = ep && fld(ep, 'type');
+  ok(!!epType && Array.from(epType.options).map(o => o.textContent).join(',') === '지출,수입,저축' && epType.value === '저축', '③ 수정 창 종류도 지출·수입·저축(현재 저축)', epType && epType.value);
+  ok(!!ep && Array.from(fld(ep, 'cat').querySelectorAll('option')).map(o => o.textContent).includes('[목표] 비상금 모으기'), '③ 수정 창 카테고리도 투자 항목 연동');
+  epType.value = '수입'; epType.dispatchEvent(new w.Event('change', { bubbles: true })); await tick();
+  ok(Array.from(fld(ep, 'cat').querySelectorAll('option')).map(o => o.textContent).includes('알바·급여'), '③ 수입으로 바꾸면 수입 카테고리로 교체');
+  epType.value = '저축'; epType.dispatchEvent(new w.Event('change', { bubbles: true })); await tick();
+  ok(Array.from(fld(ep, 'cat').querySelectorAll('option')).map(o => o.textContent).includes('[주식] 테슬라'), '③ 다시 저축으로 바꾸면 투자 항목 목록', Array.from(fld(ep, 'cat').querySelectorAll('option')).map(o => o.textContent).join(','));
+  click(ep.querySelector('[data-x="cancel"]'));
+  await tick();
+  click($('[data-act="modal-close"]'));
+
+  console.log('▸ ④ 이월 연동 · 홈 달력 · 상세');
+  const homeDec1 = $$('.cal-cell').find(c => c.dataset.date === '2026-12-01');
+  ok(!!homeDec1.querySelector('.cal-carry') && /500,000/.test(homeDec1.querySelector('.cal-carry').textContent), '④ 홈 달력 12/1에 잔액 표시', homeDec1 && calText(homeDec1));
+  const homeDec20Cell = $$('.cal-cell').find(c => c.dataset.date === '2026-12-20');
+  ok(!!homeDec20Cell.querySelector('.cal-save') && /150,000/.test(calText(homeDec20Cell.querySelector('.cal-save'))), '④ 홈 달력에 저축 금액 표시', calText(homeDec20Cell));
+  click(homeDec1);
+  ok(!!$('#modalBody .tag.carry') && /＋₩500,000/.test(calText($('#modalBody'))), '④ 날짜 상세에 잔액 반영');
+  click($('[data-act="modal-close"]'));
+  ok(w.__GD.carryoverAmount(2027, 1) === 283000, '④ 1월 이월 = 12월 잔액 283,000', w.__GD.carryoverAmount(2027, 1));
+  ok(w.__GD.carryoverAmount(2027, 2) === 0, '④ 1월에 내역이 없으면 2월 이월 없음');
+  click($('[data-act="open-finance"]'));
+  click($('[data-act="fin-next"]'));
+  click($('#modalBody .stat.income'));
+  ok($('#modalBody').textContent.includes('잔액') && $('#modalBody').textContent.includes('283,000'), '④ 1월 수입 상세에 「잔액」 283,000', calText($('#modalBody')).slice(0, 120));
+  ok($$('#modalBody .donut .dseg').length === 1 && /잔액 100%/.test(calText($('#modalBody'))), '④ 수입 도넛이 잔액 100%', $$('#modalBody .donut .dseg').length);
+  click($('[data-act="modal-close"]'));
+  click($('[data-act="modal-close"]'));
+
+  console.log('▸ 새 스타일 연결');
+  ok(/\.dotc\.saving\{/.test(css) && /\.dotc\.carry\{/.test(css), '달력 범례에 저축·잔액 점');
+  ok(/\.dday-pill\.saving\{/.test(css) && /\.tag\.saving\{/.test(css) && /\.tag\.carry\{/.test(css), '저축·잔액 태그·알약 스타일');
+  ok(/\.stat\.saving \.v\{/.test(css) && /\.fd-amt\.saving\{/.test(css) && /\.fd-flag\{/.test(css), '저축 카드·상세·예정 표시 스타일');
+  ok(/\.cal-save\{/.test(css) && /\.cal-carry\{/.test(css) && /\.fcal-day \.cy\{/.test(css), '달력 금액 색');
+  ok(/body\[data-theme="xmas"\] \.dotc\.saving\{/.test(css) && /body\[data-theme="xmas"\] \.tag\.carry\{/.test(css), '크리스마스 테마 저축·잔액 색');
+  ok(/\.stat-row\.money\{grid-template-columns:repeat\(4/.test(css), '요약 4칸 유지');
 
   console.log(results.join('\n'));
   console.log(`\n결과: ${pass} 통과 / ${fail} 실패`);

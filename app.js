@@ -209,13 +209,19 @@ function normalize(s) {
   out.finance = Object.assign({ expenses: [], goals: [], invest: [], subs: [], planned: [] }, s.finance || {});
   /* type이 없던 예전 지출 내역은 그대로 '지출'로 살린다 */
   out.finance.expenses = (out.finance.expenses || []).filter(Boolean).map(e => Object.assign({}, e, {
-    type: e.type === 'income' ? 'income' : 'expense',
+    type: e.type === 'income' ? 'income' : e.type === 'saving' ? 'saving' : 'expense',
     amount: Math.abs(Number(e.amount) || 0),
   }));
-  out.finance.subs = (out.finance.subs || []).map(sub => Object.assign({}, sub, {
-    cycle: sub && sub.cycle === 'yearly' ? 'yearly' : 'monthly',
-    month: Math.min(12, Math.max(1, Number(sub && sub.month) || 1)),
-  }));
+  /* startDate가 없는 기존 정기구독은 등록일(없으면 2026-11-28) 기준 다음 결제일로 자동 보정 */
+  out.finance.subs = (out.finance.subs || []).filter(Boolean).map(sub => {
+    const s = Object.assign({}, sub, {
+      cycle: sub.cycle === 'yearly' ? 'yearly' : 'monthly',
+      month: Math.min(12, Math.max(1, Number(sub.month) || 1)),
+      day: Math.min(31, Math.max(1, Number(sub.day) || 1)),
+    });
+    if (!s.startDate) s.startDate = subStartDate(s);
+    return s;
+  });
   out.wish = Object.assign({ want: [], need: [] }, s.wish || {});
   out.memo = Object.assign({ diary: [], habits: [], notes: [] }, s.memo || {});
   /* 메모의 태그는 나중에 붙은 속성 — 예전 메모는 빈 배열로 살린다 */
@@ -414,17 +420,41 @@ function examsOn(dateStr) {
 /* 가계부 내역 종류 — type이 없는 예전 데이터는 전부 '지출'로 본다 */
 const EXPENSE_CATS = ['식비', '카페', '교통', '쇼핑', '생활', '병원·약', '공부', '여가', '기타'];
 const INCOME_CATS = ['알바·급여', '용돈', '부수입·환급', '기타'];
+/* 📈 투자 탭에 아직 항목이 없을 때 저축 카테고리로 고를 수 있는 기본값 */
+const SAVING_FALLBACK_CATS = ['재무목표', '주식투자'];
 const isIncome = e => !!(e && e.type === 'income');
+const isSaving = e => !!(e && e.type === 'saving');
 const amtOf = e => Math.abs(Number(e && e.amount) || 0);
 const catOptionHtml = (cats, sel) => cats.map(c => `<option${c === sel ? ' selected' : ''}>${esc(c)}</option>`).join('');
+/* 저축 카테고리 = 📈 투자 탭의 재무목표·주식투자 항목과 자동 연동 */
+function savingCatOptions() {
+  const out = [];
+  (state.finance.goals || []).forEach(g => { if (g && g.name) out.push(`[목표] ${g.name}`); });
+  (state.finance.invest || []).forEach(v => { if (v && v.name) out.push(`[주식] ${v.name}`); });
+  return out.length ? out : SAVING_FALLBACK_CATS.slice();
+}
+/* 종류별 카테고리 목록 — 지출/수입/저축 */
+function catOptionsFor(type) {
+  if (type === 'income') return INCOME_CATS;
+  if (type === 'saving') return savingCatOptions();
+  return EXPENSE_CATS;
+}
+const TYPE_LABEL = { expense: '지출', income: '수입', saving: '저축' };
+/* '지출'/'수입'/'저축' → 저장 키 */
+const typeKeyOf = label => (label === '수입' ? 'income' : label === '저축' ? 'saving' : 'expense');
+const moneySign = e => (isIncome(e) ? '＋' : isSaving(e) ? '↗' : '−');
+const moneyPillCls = e => (isIncome(e) ? 'income' : isSaving(e) ? 'saving' : 'out');
 function entriesOn(dateStr) {
   return state.finance.expenses.filter(e => e.date === dateStr);
 }
 function expensesOn(dateStr) {
-  return entriesOn(dateStr).filter(e => !isIncome(e));
+  return entriesOn(dateStr).filter(e => !isIncome(e) && !isSaving(e));
 }
 function incomesOn(dateStr) {
   return entriesOn(dateStr).filter(e => isIncome(e));
+}
+function savingsOn(dateStr) {
+  return entriesOn(dateStr).filter(e => isSaving(e));
 }
 function spentOn(dateStr) {
   return expensesOn(dateStr).reduce((s, e) => s + amtOf(e), 0);
@@ -432,11 +462,14 @@ function spentOn(dateStr) {
 function incomeOn(dateStr) {
   return incomesOn(dateStr).reduce((s, e) => s + amtOf(e), 0);
 }
+function savedOn(dateStr) {
+  return savingsOn(dateStr).reduce((s, e) => s + amtOf(e), 0);
+}
 function moneyFormHtml(dateStr) {
   return `<form class="add-form money-form" data-form="expense" data-date="${dateStr}">
       ${F_CELL('내역', '<input class="in" name="title" placeholder="예: 점심 김밥" maxlength="50" autocomplete="off" required>', 'w2')}
       ${F_CELL('금액', '<input class="in num" name="amount" inputmode="numeric" placeholder="0" required>')}
-      ${F_CELL('종류', `<select class="in money-type" name="type" aria-label="종류"><option value="expense">지출</option><option value="income">수입</option></select>`)}
+      ${F_CELL('종류', `<select class="in money-type" name="type" aria-label="종류"><option value="expense">지출</option><option value="income">수입</option><option value="saving">저축</option></select>`)}
       ${F_CELL('카테고리', `<select class="in money-cat" name="cat" aria-label="카테고리">${catOptionHtml(EXPENSE_CATS)}</select>`, 'w2')}
       <button class="btn primary" type="submit">추가</button>
     </form>`;
@@ -444,6 +477,53 @@ function moneyFormHtml(dateStr) {
 function subCycleLabel(s) {
   const day = Number(s.day) || 1;
   return s.cycle === 'yearly' ? `매년 ${Number(s.month) || 1}월 ${day}일` : `매달 ${day}일`;
+}
+/* 다음 결제일 기준 '12월부터' / '2027년 3월부터' */
+function subStartLabel(s) {
+  const d = parseISO(s.startDate || todayISO());
+  const y = d.getFullYear(), thisYear = new Date().getFullYear();
+  return `${y === thisYear ? '' : `${y}년 `}${d.getMonth() + 1}월부터`;
+}
+/* 그 달에 실제로 있는 날짜로 보정 — 매달 31일 결제처럼 없는 날은 그 달 말일 */
+function subDateIn(y, m, day) {
+  const last = daysInMonth(y, m - 1);
+  const d = Math.min(Math.max(1, Number(day) || 1), last);
+  return `${y}-${pad2(m)}-${pad2(d)}`;
+}
+/* 등록일 기준 '가장 가까운 다음 결제일' — 이번 달 결제일이 남아 있으면 이번 달, 지났으면 다음 달 */
+function nextSubDate(s, fromISO) {
+  const from = fromISO || todayISO();
+  const dt = parseISO(from);
+  const y = dt.getFullYear(), m = dt.getMonth() + 1;
+  if (s && s.cycle === 'yearly') {
+    const mm = Math.min(12, Math.max(1, Number(s.month) || 1));
+    for (let yy = y; yy <= y + 8; yy++) {
+      const iso = subDateIn(yy, mm, s.day);
+      if (iso >= from) return iso;
+    }
+    return subDateIn(y + 8, mm, s.day);
+  }
+  const thisMonth = subDateIn(y, m, s && s.day);
+  if (thisMonth >= from) return thisMonth;
+  const [ny, nm] = m === 12 ? [y + 1, 1] : [y, m + 1];
+  return subDateIn(ny, nm, s && s.day);
+}
+/* createdAt(숫자·문자 모두) → YYYY-MM-DD. 없는 옛 항목은 이번 개편 기준일(2026-11-28)로 본다 */
+const SUBS_BASE_DATE = '2026-11-28';
+function dateOnly(v) {
+  if (v == null || v === '') return '';
+  if (typeof v === 'number') { const d = new Date(v); return isFinite(d.getTime()) ? isoOf(d) : ''; }
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  return isFinite(d.getTime()) ? isoOf(d) : '';
+}
+function subStartDate(s) {
+  return nextSubDate(s, dateOnly(s && s.createdAt) || SUBS_BASE_DATE);
+}
+/* 이번 달 결제일이 이미 지났으면 다음 달부터 — startDate 이전 날짜에는 뜨지 않는다 */
+function subActiveOn(s, dateStr) {
+  return !s.startDate || dateStr >= s.startDate;
 }
 /* 말일 보정 — 매달 31일 결제처럼 그 달에 없는 날짜는 그 달 마지막 날로 */
 function subHitsOn(s, y, m, d) {
@@ -457,17 +537,71 @@ function plannedOn(dateStr) {
   const dt = parseISO(dateStr);
   const y = dt.getFullYear(), m = dt.getMonth() + 1, day = dt.getDate();
   const out = [];
-  state.finance.subs.filter(s => s.active && subHitsOn(s, y, m, day))
+  state.finance.subs.filter(s => s.active && subHitsOn(s, y, m, day) && subActiveOn(s, dateStr))
     .forEach(s => out.push({
       name: s.name, amount: Number(s.amount) || 0,
       kind: s.cycle === 'yearly' ? '정기구독 · 매년' : '정기구독',
+      cat: '정기구독',
     }));
   state.finance.planned.filter(p => p.date === dateStr)
-    .forEach(p => out.push({ name: p.name, amount: Number(p.amount) || 0, kind: '구매예정' }));
+    .forEach(p => out.push({ name: p.name, amount: Number(p.amount) || 0, kind: '구매예정', cat: '구매예정' }));
   return out;
 }
 function plannedSum(dateStr) {
   return plannedOn(dateStr).reduce((s, p) => s + p.amount, 0);
+}
+
+/* ───────────── 지난달 잔액 이월 ─────────────
+   매달 1일에 전달 잔액을 '잔액' 카테고리(수입)로 얹는다. 저장하지 않고 그때그때 계산하며,
+   전달에 실제 가계부 내역(지출·수입·저축·구매예정)이 있을 때만 이월해
+   아무 내역도 없는 먼 과거 달로 빈 이월이 끝없이 이어지지 않게 한다. */
+const CARRY_CAT = '잔액';
+const monthPrefix = (y, m) => `${y}-${pad2(m)}`;
+function shiftMonth(y, m, delta) {
+  const d = new Date(y, m - 1 + delta, 1);
+  return [d.getFullYear(), d.getMonth() + 1];
+}
+function monthPlanned(y, m) {
+  let sum = 0;
+  const prefix = monthPrefix(y, m);
+  for (let d = 1; d <= daysInMonth(y, m - 1); d++) sum += plannedSum(`${prefix}-${pad2(d)}`);
+  return sum;
+}
+function monthFlow(y, m) {
+  const prefix = monthPrefix(y, m);
+  let income = 0, spent = 0, saved = 0;
+  state.finance.expenses.filter(e => e && String(e.date || '').startsWith(prefix)).forEach(e => {
+    if (isIncome(e)) income += amtOf(e);
+    else if (isSaving(e)) saved += amtOf(e);
+    else spent += amtOf(e);
+  });
+  const planned = monthPlanned(y, m);
+  return { income, spent, saved, planned, spendTotal: spent + planned };
+}
+function monthHasData(y, m) {
+  const prefix = monthPrefix(y, m);
+  if (state.finance.expenses.some(e => e && String(e.date || '').startsWith(prefix))) return true;
+  if ((state.finance.planned || []).some(p => p && String(p.date || '').startsWith(prefix))) return true;
+  return false;
+}
+/* 전달 잔액 = 전달 수입(이월 포함) − 전달 지출(예정 포함) − 전달 저축·투자 */
+function carryoverAmount(y, m) {
+  const [py, pm] = shiftMonth(y, m, -1);
+  if (!monthHasData(py, pm)) return 0;
+  const flow = monthFlow(py, pm);
+  return carryoverAmount(py, pm) + flow.income - flow.spendTotal - flow.saved;
+}
+function carryoverOn(dateStr) {
+  const s = String(dateStr || '');
+  if (!/-\d{2}-01$/.test(s)) return 0;
+  const dt = parseISO(s);
+  return carryoverAmount(dt.getFullYear(), dt.getMonth() + 1);
+}
+/* 이 달 1일에 얹히는 잔액 행 — 이월이 없으면 null */
+function carryoverItem(y, m) {
+  const amount = carryoverAmount(y, m);
+  if (!amount) return null;
+  return { date: `${monthPrefix(y, m)}-01`, title: '지난달 잔액 이월', cat: CARRY_CAT, amount, carry: true };
 }
 
 function monthCells(y, m) {
@@ -502,8 +636,8 @@ function renderCalendar() {
     const chips = chipList(ds);
     const shown = chips.slice(0, 2).map(c => `<span class="chip ${esc(c.cls)}">${esc(c.label)}</span>`).join('');
     const more = chips.length > 2 ? `<span class="cal-more">+${chips.length - 2}</span>` : '';
-    const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds);
-    const money = `${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${pl ? `<span class="cal-plan">−₩${won(pl)}</span>` : ''}`;
+    const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds), sv = savedOn(ds), cy = carryoverOn(ds);
+    const money = `${cy ? `<span class="cal-carry">${cy > 0 ? '＋' : '−'}₩${won(Math.abs(cy))}</span>` : ''}${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${sv ? `<span class="cal-save">↗₩${won(sv)}</span>` : ''}${pl ? `<span class="cal-plan">−₩${won(pl)}</span>` : ''}`;
     return `<button class="${cls}" data-act="open-day" data-date="${ds}">
       <span class="dnum">${d.getDate()}</span>
       <span class="cal-chips">${shown}${more}</span>
@@ -517,14 +651,14 @@ function dayBrief(ds) {
   const exms = examsOn(ds);
   const evs = eventsOn(ds).filter(e => !exms.some(x =>
     String(e.title).includes(x.name) || String(x.name).includes(String(e.title))));
-  return { exms, evs, plans: plannedOn(ds), spent: spentOn(ds), income: incomeOn(ds) };
+  return { exms, evs, plans: plannedOn(ds), spent: spentOn(ds), income: incomeOn(ds), saved: savedOn(ds), carry: carryoverOn(ds) };
 }
 function monthAgenda(y, m) {
   const out = [];
   for (let d = 1; d <= daysInMonth(y, m); d++) {
     const ds = `${y}-${pad2(m + 1)}-${pad2(d)}`;
     const b = dayBrief(ds);
-    if (!b.exms.length && !b.evs.length && !b.plans.length && !b.spent && !b.income) continue;
+    if (!b.exms.length && !b.evs.length && !b.plans.length && !b.spent && !b.income && !b.saved && !b.carry) continue;
     out.push({ ds, day: d, ...b });
   }
   return out;
@@ -542,11 +676,12 @@ function calxDayPanel() {
   if (!ds) return '<div class="sec-card calx-day calx-blank">날짜를 누르면 그 날 일정이 여기에 보여요 🩵</div>';
   const b = dayBrief(ds);
   const rows = [
+    ...(b.carry ? [`<div class="drow"><span class="tag carry">잔액</span><span class="grow">지난달 잔액 이월 <span class="muted">자동 계산</span></span><span class="dday-pill ${b.carry < 0 ? 'out' : 'income'}">${b.carry > 0 ? '＋' : '−'}₩${won(Math.abs(b.carry))}</span></div>`] : []),
     ...b.exms.map(x => `<div class="drow"><span class="tag ${esc(x.type)}">${esc(x.type)}</span><span class="grow"><b>${esc(x.name)}</b>${x.memo ? ` <span class="muted">${esc(x.memo)}</span>` : ''}</span></div>`),
     ...b.evs.map(e => `<div class="drow">${e.start ? `<b class="ag-time">${esc(e.start)}</b>` : ''}<span class="tag ${esc(e.category || 'personal')}">${esc(CAT_LABEL[e.category] || '일정')}</span><span class="grow">${esc(e.title)}</span></div>`),
     ...b.plans.map(p => `<div class="drow" style="border-style:dashed"><span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span><span class="dday-pill plan">−₩${won(p.amount)}</span></div>`),
   ];
-  const money = [b.income ? `수입 ＋₩${won(b.income)}` : '', b.spent ? `지출 −₩${won(b.spent)}` : ''].filter(Boolean).join(' · ');
+  const money = [b.carry ? `잔액 ${b.carry > 0 ? '＋' : '−'}₩${won(Math.abs(b.carry))}` : '', b.income ? `수입 ＋₩${won(b.income)}` : '', b.spent ? `지출 −₩${won(b.spent)}` : '', b.saved ? `저축 ↗₩${won(b.saved)}` : ''].filter(Boolean).join(' · ');
   return `<div class="sec-card calx-day">
     <div class="sec-head" style="margin:0">
       <h3><span class="em">🔎</span>${fmtDateKo(ds)}</h3>
@@ -579,7 +714,7 @@ function calxAgendaHtml(y, m) {
         ${g.evs.map(e => `<div class="ag-row">${e.start ? `<span class="ag-time">${esc(e.start)}</span>` : ''}<span class="dotc ${esc(e.category || 'personal')}"></span><span class="grow">${esc(e.title)}</span>${e.repeat === 'weekly' ? '<span class="muted">매주</span>' : ''}</div>`).join('')}
         ${g.plans.map(p => `<div class="ag-row"><span class="dotc plan"></span><span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span><span class="dday-pill plan">−₩${won(p.amount)}</span></div>`).join('')}
       </div>
-      ${(g.spent || g.income) ? `<div class="ag-money">${g.income ? `<span class="cal-income">수입 ＋₩${won(g.income)}</span>` : ''}${g.spent ? `<span class="cal-spend">지출 −₩${won(g.spent)}</span>` : ''}</div>` : ''}
+      ${(g.spent || g.income || g.saved || g.carry) ? `<div class="ag-money">${g.carry ? `<span class="cal-carry">잔액 ${g.carry > 0 ? '＋' : '−'}₩${won(Math.abs(g.carry))}</span>` : ''}${g.income ? `<span class="cal-income">수입 ＋₩${won(g.income)}</span>` : ''}${g.spent ? `<span class="cal-spend">지출 −₩${won(g.spent)}</span>` : ''}${g.saved ? `<span class="cal-save">저축 ↗₩${won(g.saved)}</span>` : ''}</div>` : ''}
     </div>`).join('');
 }
 function renderCalendarModal() {
@@ -594,8 +729,8 @@ function renderCalendarModal() {
     const chips = chipList(ds);
     const shown = chips.slice(0, 3).map(c => `<span class="chip ${esc(c.cls)}">${esc(c.label)}</span>`).join('');
     const more = chips.length > 3 ? `<span class="cal-more">+${chips.length - 3}</span>` : '';
-    const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds);
-    const money = `${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${pl ? `<span class="cal-plan">−₩${won(pl)}</span>` : ''}`;
+    const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds), sv = savedOn(ds), cy = carryoverOn(ds);
+    const money = `${cy ? `<span class="cal-carry">${cy > 0 ? '＋' : '−'}₩${won(Math.abs(cy))}</span>` : ''}${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${sv ? `<span class="cal-save">↗₩${won(sv)}</span>` : ''}${pl ? `<span class="cal-plan">−₩${won(pl)}</span>` : ''}`;
     return `<button class="${cls}" data-act="calx-day" data-date="${ds}" aria-label="${d.getDate()}일 일정 보기">
       <span class="dnum">${d.getDate()}</span>
       <span class="cal-chips">${shown}${more}</span>
@@ -625,7 +760,9 @@ function renderCalendarModal() {
         <span><i class="dotc work"></i>알바</span>
         <span class="legend-money"><i class="dotc income"></i>수입</span>
         <span class="legend-money"><i class="dotc spend"></i>지출</span>
+        <span class="legend-money"><i class="dotc saving"></i>저축</span>
         <span class="legend-money"><i class="dotc plan"></i>예정</span>
+        <span class="legend-money"><i class="dotc carry"></i>잔액</span>
       </div>
     </div>
     <div class="calx-side">
@@ -759,15 +896,16 @@ const monthOptions = (sel) => Array.from({ length: 12 }, (_, i) => `<option valu
 const dayOptions = (sel) => Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${Number(sel) === i + 1 ? 'selected' : ''}>${i + 1}일</option>`).join('');
 
 function financeStats() {
-  const y = finMonth.getFullYear(), m = finMonth.getMonth();
-  const prefix = `${y}-${pad2(m + 1)}`;
-  let income = 0, spent = 0;
-  state.finance.expenses.filter(e => (e.date || '').startsWith(prefix)).forEach(e => {
-    if (isIncome(e)) income += amtOf(e); else spent += amtOf(e);
-  });
-  let planned = 0;
-  for (let d = 1; d <= daysInMonth(y, m); d++) planned += plannedSum(`${prefix}-${pad2(d)}`);
-  return { income, spent, planned, balance: income - spent };
+  const y = finMonth.getFullYear(), m = finMonth.getMonth() + 1;
+  const flow = monthFlow(y, m);
+  const carry = carryoverAmount(y, m);
+  const income = flow.income + carry;
+  return {
+    income, spent: flow.spent, saved: flow.saved, planned: flow.planned,
+    spendTotal: flow.spendTotal, carry,
+    /* 수입 − 이번 달 지출(예정 포함) − 이번 달 저축·투자 */
+    balance: income - flow.spendTotal - flow.saved,
+  };
 }
 
 function financeCalendar() {
@@ -777,12 +915,14 @@ function financeCalendar() {
   const cells = monthCells(y, m).map(d => {
     if (!d) return '<span></span>';
     const ds = isoOf(d);
-    const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds);
+    const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds), sv = savedOn(ds), cy = carryoverOn(ds);
     const cls = ['fcal-day', ds === tISO ? 'today' : '', ds === finSel ? 'sel' : ''].join(' ');
     return `<button class="${cls}" data-act="fin-day" data-date="${ds}">
       <span class="dn">${d.getDate()}</span>
+      ${cy ? `<span class="cy">${cy > 0 ? '+' : '-'}${won(Math.abs(cy))}</span>` : ''}
       ${inc ? `<span class="inc">+${won(inc)}</span>` : ''}
       ${sp ? `<span class="sp">-${won(sp)}</span>` : ''}
+      ${sv ? `<span class="sv">↗${won(sv)}</span>` : ''}
       ${pl ? `<span class="pl">-${won(pl)}</span>` : ''}
     </button>`;
   }).join('');
@@ -793,22 +933,29 @@ function finDayPanel() {
   const ds = finSel || todayISO();
   const entries = entriesOn(ds).sort((a, b) => (a.id > b.id ? 1 : -1));
   const plans = plannedOn(ds);
-  const inc = incomeOn(ds), spent = spentOn(ds);
+  const inc = incomeOn(ds), spent = spentOn(ds), saved = savedOn(ds), carry = carryoverOn(ds);
   const head = [`수입 ₩${won(inc)}`, `지출 ₩${won(spent)}`];
+  if (saved) head.push(`저축 ↗₩${won(saved)}`);
   if (plans.length) head.push(`예정 −₩${won(plannedSum(ds))}`);
+  if (carry) head.unshift(`잔액 ${carry > 0 ? '＋' : '−'}₩${won(Math.abs(carry))}`);
   return `<div class="sec-card">
     <div class="sec-head" style="margin:0">
       <h3><span class="em">🧾</span>${fmtDateKo(ds)}</h3>
       <span class="sec-note">${head.join(' · ')}</span>
     </div>
+    ${carry ? `<div class="row-list"><div class="drow" style="border-style:dashed">
+      <span class="tag carry">잔액</span>
+      <span class="grow">지난달 잔액 이월 <span class="muted">자동 계산 · 저장 안 됨</span></span>
+      <span class="dday-pill ${carry > 0 ? 'income' : 'out'}">${carry > 0 ? '＋' : '−'}₩${won(Math.abs(carry))}</span>
+    </div></div>` : ''}
     ${entries.length ? `<div class="row-list">${entries.map(e => `
       <div class="drow">
-        ${isIncome(e) ? '<span class="tag income">수입</span>' : ''}
+        ${isIncome(e) ? '<span class="tag income">수입</span>' : isSaving(e) ? '<span class="tag saving">저축</span>' : ''}
         <span class="grow">${esc(e.title)} <span class="muted">${esc(e.cat || '기타')}${e.memo ? ' · ' + esc(e.memo) : ''}</span></span>
-        <span class="dday-pill ${isIncome(e) ? 'income' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
+        <span class="dday-pill ${moneyPillCls(e)}">${moneySign(e)}₩${won(amtOf(e))}</span>
         <button class="icon-x" data-act="exp-edit" data-id="${e.id}" title="수정">✏️</button>
         <button class="icon-x" data-act="exp-del" data-id="${e.id}" title="삭제">✕</button>
-      </div>`).join('')}</div>` : '<div class="empty">이 날 쓴 내역이 없어요</div>'}
+      </div>`).join('')}</div>` : (carry ? '' : '<div class="empty">이 날 쓴 내역이 없어요</div>')}
     ${plans.length ? `<div class="row-list">${plans.map(p => `
       <div class="drow" style="border-style:dashed">
         <span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span>
@@ -823,18 +970,24 @@ function renderFinanceModal() {
   const subs = state.finance.subs;
   const monthlySubs = subs.filter(s => s.active && s.cycle !== 'yearly').reduce((a, s) => a + (Number(s.amount) || 0), 0);
   const yearlySubs = subs.filter(s => s.active && s.cycle === 'yearly').reduce((a, s) => a + (Number(s.amount) || 0), 0);
+  /* 저축 카드에는 이번 달 가장 많이 넣은 저축·투자 항목을 한 줄로 */
+  const savingTop = chartParts(financeMonthItems('saving')).rows[0];
+  const savingSub = savingTop ? `<div class="stat-sub">${esc(savingTop.cat)}</div>` : '';
   return `
     <div class="stat-row money">
       <button class="stat income stat-btn" data-act="fin-detail" data-kind="income" title="이번 달 수입 상세 · 카테고리 비율">
-        <div class="k">이번 달 수입<span class="stat-go">상세 ›</span></div><div class="v">＋₩${won(st.income)}</div>
+        <div class="k">이번 달 수입<span class="stat-go">상세 ›</span></div><div class="v">${st.income < 0 ? '−' : '＋'}₩${won(Math.abs(st.income))}</div>
+        ${st.carry ? `<div class="stat-sub">전달 잔액 ${st.carry > 0 ? '＋' : '−'}₩${won(Math.abs(st.carry))} 포함</div>` : ''}
       </button>
-      <button class="stat spend stat-btn" data-act="fin-detail" data-kind="spend" title="이번 달 지출 상세 · 카테고리 비율">
-        <div class="k">이번 달 지출<span class="stat-go">상세 ›</span></div><div class="v">−₩${won(st.spent)}</div>
+      <button class="stat spend stat-btn" data-act="fin-detail" data-kind="spend" title="이번 달 지출 상세 · 정기구독·구매예정 포함">
+        <div class="k">이번 달 지출<span class="stat-go">상세 ›</span></div><div class="v">−₩${won(st.spendTotal)}</div>
+        ${st.planned ? `<div class="stat-sub">예정 ${won(st.planned)} 포함</div>` : ''}
       </button>
-      <button class="stat plan stat-btn" data-act="fin-detail" data-kind="plan" title="예정 지출 상세 · 카테고리 비율">
-        <div class="k">예정 지출<span class="stat-go">상세 ›</span></div><div class="v">−₩${won(st.planned)}</div>
+      <button class="stat saving stat-btn" data-act="fin-detail" data-kind="saving" title="이번 달 저축·투자 상세 · 카테고리 비율">
+        <div class="k">저축<span class="stat-go">상세 ›</span></div><div class="v">↗₩${won(st.saved)}</div>
+        ${savingSub}
       </button>
-      <div class="stat balance ${st.balance < 0 ? 'neg' : ''}"><div class="k">수입 - 지출</div><div class="v">${st.balance < 0 ? '−' : ''}₩${won(Math.abs(st.balance))}</div></div>
+      <div class="stat balance ${st.balance < 0 ? 'neg' : ''}"><div class="k">수입 - 지출 - 투자</div><div class="v">${st.balance < 0 ? '−' : ''}₩${won(Math.abs(st.balance))}</div></div>
     </div>
     <div class="fin-subs-line">🔁 활성 구독 ₩${won(monthlySubs)}<small> /월</small>${yearlySubs ? ` · 연 ₩${won(yearlySubs)}` : ''}</div>
 
@@ -849,7 +1002,7 @@ function renderFinanceModal() {
       </div>
       <div class="sec-card">
         <div class="cal-title" id="finMonthLabel" style="font-size:13px;color:#8ba3b5;font-family:var(--font-num);margin-bottom:2px">
-          ${finMonth.getFullYear()}년 ${finMonth.getMonth() + 1}월 · ${themeOf(state) === 'xmas' ? '빨간=지출, 초록=수입, 금색=예정' : '파란=지출, 초록=수입, 주황=예정'}
+          ${finMonth.getFullYear()}년 ${finMonth.getMonth() + 1}월 · ${themeOf(state) === 'xmas' ? '빨간=지출 · 초록=수입 · 금색=예정 · ↗저축 · 잔액=이월' : '파란=지출 · 초록=수입 · 주황=예정 · ↗저축 · 잔액=이월'}
         </div>
         ${financeCalendar()}
       </div>
@@ -861,7 +1014,7 @@ function renderFinanceModal() {
       ${subs.length ? `<div class="row-list">${subs.map(s => `
         <div class="drow">
           <button class="switch ${s.active ? 'on' : ''}" data-act="sub-toggle" data-id="${s.id}" aria-label="활성"></button>
-          <span class="grow"><b>${esc(s.name)}</b> <span class="muted">${esc(subCycleLabel(s))}</span></span>
+          <span class="grow"><b>${esc(s.name)}</b> <span class="muted">${esc(subCycleLabel(s))}${s.startDate ? ` · ${subStartLabel(s)}` : ''}</span></span>
           <span class="dday-pill">₩${won(s.amount)}${s.cycle === 'yearly' ? '<small> /년</small>' : ''}</span>
           <button class="icon-x" data-act="sub-edit" data-id="${s.id}">✏️</button>
           <button class="icon-x" data-act="sub-del" data-id="${s.id}">✕</button>
@@ -874,7 +1027,7 @@ function renderFinanceModal() {
         <label class="fld day"><span>결제일</span><select class="in sub-day" name="day">${dayOptions(1)}</select></label>
         <button class="btn primary" type="submit">추가</button>
       </form>
-      <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 = 매월 그 날, 매년 = 그 달·그 날에만 예정 지출로 표시돼요. 31일처럼 없는 날은 그 달 말일로 맞춰줘요.</div>
+      <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 = 매월 그 날, 매년 = 그 달·그 날. 등록한 날 기준 <b>다음 결제일이 이번 달이면 이번 달부터, 지났으면 다음 달부터</b> 표시되고, 31일처럼 없는 날은 그 달 말일로 맞춰요.</div>
     </section>`;
 }
 
@@ -945,7 +1098,7 @@ function renderInvestModal() {
 const FIN_DETAIL = {
   income: { label: '이번 달 수입', short: '수입', em: '💚', pill: 'income', sign: '＋' },
   spend: { label: '이번 달 지출', short: '지출', em: '💸', pill: 'out', sign: '−' },
-  plan: { label: '예정 지출', short: '예정 지출', em: '🗓', pill: 'plan', sign: '−' },
+  saving: { label: '이번 달 저축·투자', short: '저축·투자', em: '🏦', pill: 'saving', sign: '↗' },
 };
 /* 도넛 가운데 글씨는 돈이 커도 넘치지 않게 줄여 쓴다 (정확한 합계는 위 제목줄에) */
 function compactWon(n) {
@@ -955,23 +1108,35 @@ function compactWon(n) {
   return `₩${won(v)}`;
 }
 
-/* 그 달의 상세 내역 — 수입·지출은 내역에서, 예정 지출은 정기구독·구매예정에서 모은다 */
+/* 그 달의 상세 내역
+   · 수입  = 실제 수입 + 1일 '잔액' 이월
+   · 지출  = 실제 지출 + 정기구독·구매예정(예정 포함)
+   · 저축  = 저축·투자 내역만 */
 function financeMonthItems(kind) {
-  const y = finMonth.getFullYear(), m = finMonth.getMonth();
-  const prefix = `${y}-${pad2(m + 1)}`;
-  if (kind === 'plan') {
-    const out = [];
-    for (let d = 1; d <= daysInMonth(y, m); d++) {
+  const y = finMonth.getFullYear(), m = finMonth.getMonth() + 1;
+  const prefix = monthPrefix(y, m);
+  if (kind === 'spend') {
+    const rows = state.finance.expenses
+      .filter(e => e && String(e.date || '').startsWith(prefix) && !isIncome(e) && !isSaving(e))
+      .map(e => ({ id: e.id, date: e.date, title: e.title, cat: e.cat || '기타', amount: amtOf(e) }));
+    for (let d = 1; d <= daysInMonth(y, m - 1); d++) {
       const ds = `${prefix}-${pad2(d)}`;
-      plannedOn(ds).forEach(p => out.push({ date: ds, title: p.name, cat: p.kind, amount: Number(p.amount) || 0 }));
+      plannedOn(ds).forEach(p => rows.push({ date: ds, title: p.name, cat: p.cat || p.kind, amount: Number(p.amount) || 0, planned: true }));
     }
-    return out.sort((a, b) => a.date.localeCompare(b.date));
+    return rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.id || '').localeCompare(String(b.id || '')));
   }
-  const wantIncome = kind === 'income';
-  return state.finance.expenses
-    .filter(e => e && (e.date || '').startsWith(prefix) && isIncome(e) === wantIncome)
-    .map(e => ({ id: e.id, date: e.date, title: e.title, cat: e.cat || '기타', amount: amtOf(e) }))
-    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.id).localeCompare(String(b.id)));
+  if (kind === 'saving') {
+    return state.finance.expenses
+      .filter(e => e && String(e.date || '').startsWith(prefix) && isSaving(e))
+      .map(e => ({ id: e.id, date: e.date, title: e.title, cat: e.cat || '기타', amount: amtOf(e) }))
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  }
+  const rows = state.finance.expenses
+    .filter(e => e && String(e.date || '').startsWith(prefix) && isIncome(e))
+    .map(e => ({ id: e.id, date: e.date, title: e.title, cat: e.cat || '기타', amount: amtOf(e) }));
+  const carry = carryoverItem(y, m);
+  if (carry) rows.push(carry);
+  return rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.id || '').localeCompare(String(b.id || '')));
 }
 
 /* 카테고리별 합계 → 비중(%) — 반올림한 퍼센트의 합이 정확히 100이 되도록 최대 나머지 방식 */
@@ -1031,29 +1196,39 @@ function renderFinanceDetailModal(kind) {
   const y = finMonth.getFullYear(), m = finMonth.getMonth() + 1;
   const items = financeMonthItems(key);
   const { total, rows } = chartParts(items);
+  /* 합계는 이월(마이너스 포함)·예정까지 그대로 더한 값 — 도넛은 양수 카테고리만 */
+  const sum = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
   const chart = rows.length
     ? `<div class="chart-wrap">${donutSvg(rows, total)}<div class="chart-side">${chartLegendHtml(rows)}</div></div>`
     : `<div class="chart-empty">${m}월 ${meta.short} 내역이 없어서 보여줄 비율이 없어요 🩵</div>`;
+  const notes = [];
+  if (items.some(i => i.planned)) notes.push('정기구독·구매예정 포함');
+  if (items.some(i => i.carry)) notes.push('잔액 이월 포함');
   const rowsHtml = items.length
-    ? `<div class="fd-list">${items.map(i => `
+    ? `<div class="fd-list">${items.map(i => {
+      const neg = i.carry && Number(i.amount) < 0;
+      const sign = i.carry ? (neg ? '−' : '＋') : meta.sign;
+      return `
       <div class="fd-row">
         <span class="fd-date">${fmtDateShort(i.date)}</span>
         <span class="fd-title">${esc(i.title)}</span>
         <span class="fd-cat">${esc(i.cat || '기타')}</span>
-        <span class="fd-amt ${meta.pill}">${meta.sign}₩${won(i.amount)}</span>
-      </div>`).join('')}</div>`
+        ${i.planned ? '<span class="fd-flag">예정</span>' : ''}
+        <span class="fd-amt ${meta.pill}">${sign}₩${won(Math.abs(Number(i.amount) || 0))}</span>
+      </div>`;
+    }).join('')}</div>`
     : `<div class="empty">${m}월 ${meta.short} 내역이 아직 없어요</div>`;
   return `
     <section class="sec">
       <div class="sec-head">
         <h3><span class="em">${meta.em}</span>${y}년 ${m}월 ${meta.short}</h3>
         <span class="sec-count">${items.length}건</span>
-        <span class="sec-note">합계 ₩${won(total)}</span>
+        <span class="sec-note">합계 ${sum < 0 ? '−' : ''}₩${won(Math.abs(sum))}</span>
       </div>
       <div class="sec-card chart-card">${chart}</div>
     </section>
     <section class="sec">
-      <div class="sec-head"><h3><span class="em">🧾</span>상세 내역</h3><span class="sec-count">${items.length}</span><span class="sec-note">수정·삭제는 가계부 캘린더에서</span></div>
+      <div class="sec-head"><h3><span class="em">🧾</span>상세 내역</h3><span class="sec-count">${items.length}</span><span class="sec-note">${notes.length ? notes.join(' · ') : '수정·삭제는 가계부 캘린더에서'}</span></div>
       ${rowsHtml}
     </section>`;
 }
@@ -1202,6 +1377,7 @@ function renderDayModal(dateStr) {
   const evs = eventsOn(ds);
   const exps = entriesOn(ds);
   const plans = plannedOn(ds);
+  const carry = carryoverOn(ds);
   return `
     <section class="sec">
       <div class="sec-head"><h3><span class="em">📌</span>일정</h3><span class="sec-count">${evs.length + exms.length}</span></div>
@@ -1222,12 +1398,17 @@ function renderDayModal(dateStr) {
     </section>
 
     <section class="sec">
-      <div class="sec-head"><h3><span class="em">🪙</span>수입 · 지출</h3><span class="sec-count">수입 ₩${won(incomeOn(ds))} · 지출 ₩${won(spentOn(ds))}</span></div>
+      <div class="sec-head"><h3><span class="em">🪙</span>수입 · 지출 · 저축</h3><span class="sec-count">${[`수입 ₩${won(incomeOn(ds))}`, `지출 ₩${won(spentOn(ds))}`, carry ? `잔액 ${carry > 0 ? '＋' : '−'}₩${won(Math.abs(carry))}` : '', savedOn(ds) ? `저축 ₩${won(savedOn(ds))}` : ''].filter(Boolean).join(' · ')}</span></div>
+      ${carry ? `<div class="row-list"><div class="drow" style="border-style:dashed">
+        <span class="tag carry">잔액</span>
+        <span class="grow">지난달 잔액 이월 <span class="muted">자동 계산</span></span>
+        <span class="dday-pill ${carry > 0 ? 'income' : 'out'}">${carry > 0 ? '＋' : '−'}₩${won(Math.abs(carry))}</span>
+      </div></div>` : ''}
       ${exps.length ? `<div class="row-list">${exps.map(e => `
         <div class="drow">
-          ${isIncome(e) ? '<span class="tag income">수입</span>' : ''}
+          ${isIncome(e) ? '<span class="tag income">수입</span>' : isSaving(e) ? '<span class="tag saving">저축</span>' : ''}
           <span class="grow">${esc(e.title)} <span class="muted">${esc(e.cat || '기타')}${e.memo ? ' · ' + esc(e.memo) : ''}</span></span>
-          <span class="dday-pill ${isIncome(e) ? 'income' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
+          <span class="dday-pill ${moneyPillCls(e)}">${moneySign(e)}₩${won(amtOf(e))}</span>
           <button class="icon-x" data-act="exp-edit" data-id="${e.id}" title="수정">✏️</button>
           <button class="icon-x" data-act="exp-del" data-id="${e.id}" title="삭제">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">아직 기록이 없어요</div>'}
@@ -1603,10 +1784,11 @@ const FORMS = {
   expense(form) {
     const title = fv(form, 'title'); const amount = clampNum(fv(form, 'amount'));
     if (!title || !amount) return toast('내역과 금액을 채워주세요');
-    const type = fv(form, 'type') === 'income' ? 'income' : 'expense';
-    const cats = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
+    const sel = fv(form, 'type');
+    const type = sel === 'income' ? 'income' : sel === 'saving' ? 'saving' : 'expense';
+    const cats = catOptionsFor(type);
     let cat = fv(form, 'cat');
-    if (!cats.includes(cat)) cat = '기타';
+    if (!cats.includes(cat)) cat = type === 'saving' ? (cats[0] || '기타') : '기타';
     state.finance.expenses.push({ id: uid(), date: form.dataset.date, title, amount: Math.abs(amount), cat, type, memo: '' });
     commit();
   },
@@ -1627,8 +1809,11 @@ const FORMS = {
     if (day < 1) day = 1; if (day > 31) day = 31;
     const cycle = fv(form, 'cycle') === 'yearly' ? 'yearly' : 'monthly';
     const month = Math.min(12, Math.max(1, clampNum(fv(form, 'month')) || 1));
-    state.finance.subs.push({ id: uid(), name, amount, day, cycle, month, active: true });
-    commit(); toast(cycle === 'yearly' ? '매년 정기구독으로 추가했어요' : '매달 정기구독으로 추가했어요');
+    const sub = { id: uid(), name, amount, day, cycle, month, active: true, createdAt: todayISO() };
+    /* 등록일 기준 다음 결제일 → 이번 달 결제일이 지났으면 다음 달부터 */
+    sub.startDate = nextSubDate(sub, todayISO());
+    state.finance.subs.push(sub);
+    commit(); toast(`${cycle === 'yearly' ? '매년' : '매달'} 정기구독으로 추가했어요 · ${subStartLabel(sub)} 표시`);
   },
   want(form) {
     const name = fv(form, 'name'); if (!name) return;
@@ -1682,16 +1867,17 @@ document.addEventListener('change', ev => {
   if (form) form.classList.toggle('yearly', sel.value === 'yearly');
 });
 
-/* 내역 종류(지출/수입) → 알맞은 카테고리 목록으로 바꾸기 */
+/* 내역 종류(지출/수입/저축) → 알맞은 카테고리 목록으로 바꾸기 */
 document.addEventListener('change', ev => {
   const sel = ev.target.closest('[data-form="expense"] select[name="type"]');
   if (!sel) return;
   const form = sel.closest('[data-form="expense"]');
   const catSel = form && form.querySelector('select[name="cat"]');
   if (!catSel) return;
-  const income = sel.value === 'income';
-  catSel.innerHTML = catOptionHtml(income ? INCOME_CATS : EXPENSE_CATS);
-  form.classList.toggle('is-income', income);
+  const type = sel.value === 'income' ? 'income' : sel.value === 'saving' ? 'saving' : 'expense';
+  catSel.innerHTML = catOptionHtml(catOptionsFor(type));
+  form.classList.toggle('is-income', type === 'income');
+  form.classList.toggle('is-saving', type === 'saving');
 });
 
 /* 빈 날짜 칸 안내 문구 — 값이 생길거나 지워지면 바로 반영 */
@@ -1808,34 +1994,36 @@ document.addEventListener('click', async ev => {
     case 'exp-del': state.finance.expenses = state.finance.expenses.filter(x => x.id !== id); commit(); break;
     case 'exp-edit': {
       const e = state.finance.expenses.find(x => x.id === id); if (!e) break;
-      const income0 = isIncome(e);
-      const cats0 = income0 ? INCOME_CATS : EXPENSE_CATS;
+      const type0 = isIncome(e) ? 'income' : isSaving(e) ? 'saving' : 'expense';
+      const cats0 = catOptionsFor(type0);
       const r = await askPrompt({
         title: '내역 수정',
         fields: [
           { key: 'date', label: '날짜', type: 'date', value: e.date },
-          { key: 'type', label: '종류', type: 'select', options: ['지출', '수입'], value: income0 ? '수입' : '지출' },
-          { key: 'cat', label: '카테고리', type: 'select', options: cats0, value: cats0.includes(e.cat) ? e.cat : '기타' },
+          { key: 'type', label: '종류', type: 'select', options: ['지출', '수입', '저축'], value: TYPE_LABEL[type0] },
+          { key: 'cat', label: '카테고리', type: 'select', options: cats0, value: cats0.includes(e.cat) ? e.cat : cats0[0] },
           { key: 'title', label: '내역', value: e.title, full: true },
           { key: 'amount', label: '금액', value: amtOf(e), inputmode: 'numeric' },
           { key: 'memo', label: '메모 (선택)', value: e.memo || '' },
         ],
         confirmText: '저장',
-        /* 지출 ↔ 수입을 바꾸면 카테고리 목록이 그 종류에 맞춰 통째로 바뀐다 */
+        /* 지출 ↔ 수입 ↔ 저축을 바꾸면 카테고리 목록이 그 종류에 맞춰 통째로 바뀐다 */
         onChange: (key, val, wrap) => {
           if (key !== 'type') return;
           const catSel = wrap.querySelector('[name="cat"]');
           if (!catSel) return;
-          const cats = val === '수입' ? INCOME_CATS : EXPENSE_CATS;
+          const t = typeKeyOf(val);
+          const cats = catOptionsFor(t);
           const cur = catSel.value;
-          catSel.innerHTML = catOptionHtml(cats, cats.includes(cur) ? cur : '기타');
-          wrap.classList.toggle('is-income', val === '수입');
+          catSel.innerHTML = catOptionHtml(cats, cats.includes(cur) ? cur : cats[0]);
+          wrap.classList.toggle('is-income', t === 'income');
+          wrap.classList.toggle('is-saving', t === 'saving');
         },
       });
       if (!r) break;
-      const type = r.type === '수입' ? 'income' : 'expense';
-      const cats = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
-      const cat = cats.includes(r.cat) ? r.cat : '기타';
+      const type = typeKeyOf(r.type);
+      const cats = catOptionsFor(type);
+      const cat = cats.includes(r.cat) ? r.cat : (type === 'saving' ? (cats[0] || '기타') : '기타');
       const amount = clampNum(r.amount);
       Object.assign(e, {
         date: r.date || e.date,
@@ -1863,13 +2051,19 @@ document.addEventListener('click', async ev => {
         ], confirmText: '저장',
       });
       if (!r) break;
+      const nextCycle = r.cycle === '매년' ? 'yearly' : 'monthly';
+      const nextMonth = Math.min(12, Math.max(1, parseInt(r.month, 10) || s.month || 1));
+      const nextDay = Math.min(31, Math.max(1, parseInt(r.day, 10) || s.day || 1));
+      const scheduleChanged = nextCycle !== s.cycle || nextMonth !== Number(s.month) || nextDay !== Number(s.day);
       Object.assign(s, {
         name: r.name.trim() || s.name,
         amount: clampNum(r.amount),
-        cycle: r.cycle === '매년' ? 'yearly' : 'monthly',
-        month: Math.min(12, Math.max(1, parseInt(r.month, 10) || s.month || 1)),
-        day: Math.min(31, Math.max(1, parseInt(r.day, 10) || s.day || 1)),
+        cycle: nextCycle,
+        month: nextMonth,
+        day: nextDay,
       });
+      /* 결제일·주기를 바꾸면 오늘 기준 다음 결제일로 다시 잡는다 (금액만 고칠 땐 그대로) */
+      if (scheduleChanged) s.startDate = nextSubDate(s, todayISO());
       commit(); break;
     }
     case 'fgoal-del': state.finance.goals = state.finance.goals.filter(x => x.id !== id); commit(); break;
@@ -2642,6 +2836,8 @@ window.__GD = {
   seal, unseal, rowIdFor, cloudPush, cloudPull, applyRemote, startSync,
   plannedOn, subCycleLabel, normalize, financeStats, spentOn, incomeOn, entriesOn,
   financeMonthItems, chartParts, donutSvg,
+  nextSubDate, subStartDate, savingCatOptions, catOptionsFor, savedOn, carryoverAmount, carryoverOn,
+  monthFlow, renderAll,
   EXPENSE_CATS, INCOME_CATS,
   hour12, ampmOf, clockParts, renderClock,
   openCalendarModal, renderCalendarModal, monthAgenda,
