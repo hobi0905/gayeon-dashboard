@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=16">
+<link rel="stylesheet" href="styles.css?v=17">
 </head>
 <body data-theme="xmas">
 <div class="app" id="app">
@@ -96,12 +96,13 @@
             </div>
           </section>
 
-          <section class="card weather-card" id="weatherCard">
+          <section class="card weather-card" id="weatherCard" data-act="open-weather" role="button" tabindex="0" aria-label="날씨 카드 · 현 위치 10일 예보 열기">
+            <span class="wx-hint">10일 예보 <b>›</b></span>
             <div class="wx-top">
               <div class="wx-emoji" id="wxIcon">☁️</div>
               <div class="wx-temp" id="wxTemp">--°</div>
             </div>
-            <div class="wx-place">인천 · <span id="wxDesc">불러오는 중…</span></div>
+            <div class="wx-place"><span id="wxPlace">인천</span> · <span id="wxDesc">불러오는 중…</span></div>
             <div class="wx-extra" id="wxExtra"></div>
           </section>
 
@@ -159,6 +160,6 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="app.js?v=13" defer></script>
+<script src="app.js?v=14" defer></script>
 </body>
 </html>

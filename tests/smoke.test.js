@@ -89,6 +89,96 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(!!cell28, '11/28 셀 존재');
   ok(cell28 && cell28.textContent.includes('컴활접수'), '11/28에 컴활접수 일정 표시', cell28 && cell28.textContent);
 
+  console.log('▸ 날씨 카드 · 10일 예보 모달');
+  const pad = n => String(n).padStart(2, '0');
+  const isoD = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const wxFixture = () => {
+    const now = new Date();
+    const base = new Date(now); base.setHours(0, 0, 0, 0);
+    const dates = Array.from({ length: 10 }, (_, i) => { const d = new Date(base); d.setDate(d.getDate() + i); return isoD(d); });
+    const h0 = new Date(now); h0.setMinutes(0, 0, 0);
+    const hours = Array.from({ length: 30 }, (_, i) => { const d = new Date(h0.getTime() + i * 3600000); return `${isoD(d)}T${pad(d.getHours())}:00`; });
+    return {
+      current: { temperature_2m: 8.4, apparent_temperature: 5.1, relative_humidity_2m: 63, weather_code: 3, wind_speed_10m: 12.3 },
+      hourly: {
+        time: hours,
+        temperature_2m: hours.map((_, i) => 8 - i * 0.2),
+        weather_code: hours.map(() => 3),
+        relative_humidity_2m: hours.map(() => 63),
+        precipitation_probability: hours.map((_, i) => (i === 1 ? 55 : 10)),
+      },
+      daily: {
+        time: dates,
+        weather_code: [3, 61, 2, 0, 1, 80, 3, 45, 0, 2],
+        temperature_2m_max: [11.2, 9.8, 10.4, 12.1, 13.6, 8.9, 10.2, 11.5, 12.8, 9.4],
+        temperature_2m_min: [2.1, 4.2, 1.8, 0.9, 2.4, 3.1, 4.4, 5.2, 2.9, 1.2],
+        apparent_temperature_max: [], apparent_temperature_min: [],
+        precipitation_probability_max: [20, 70, 10, 0, 0, 60, 30, 10, 0, 10],
+        wind_speed_10m_max: [12, 20, 9, 8, 7, 18, 11, 9, 10, 13],
+        sunrise: dates.map(d => `${d}T07:24`),
+        sunset: dates.map(d => `${d}T17:12`),
+      },
+    };
+  };
+  w.fetch = url => {
+    const u = String(url);
+    if (u.includes('open-meteo')) return Promise.resolve({ ok: true, json: async () => wxFixture() });
+    if (u.includes('bigdatacloud')) return Promise.resolve({ ok: true, json: async () => ({ city: '서울', locality: '중구', principalSubdivision: '서울특별시' }) });
+    if (u.includes('nominatim')) return Promise.resolve({ ok: true, json: async () => ({ address: { city: '서울' } }) });
+    return Promise.reject(new Error('unexpected ' + u));
+  };
+
+  const wcard = $('#weatherCard');
+  ok(!!wcard && wcard.dataset.act === 'open-weather', '날씨 카드를 누르면 모달 여는 액션');
+  ok(wcard.getAttribute('role') === 'button' && wcard.getAttribute('tabindex') === '0', '날씨 카드 role·tabindex 접근성');
+  ok(wcard.textContent.includes('10일 예보'), '날씨 카드에 “10일 예보 >” 힌트');
+  const appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  ok(/navigator\.geolocation/.test(appSrc) && appSrc.includes('forecast_days=10'), '현 위치 + forecast_days=10 요청');
+
+  click(wcard);
+  ok(!$('#modalRoot').hidden, '날씨 카드 클릭 → 모달 열림');
+  ok($('#modalTitle').textContent.includes('날씨') && $('#modalTitle').textContent.includes('10일'), '모달 제목(날씨·10일)', $('#modalTitle').textContent);
+  await new Promise(r => setTimeout(r, 80));
+  let wxBody = $('#modalBody').textContent;
+  ok(wxBody.includes('📍 인천'), '위치 권한 없는 환경 → 인천 기준 표시', wxBody.slice(0, 60));
+  ok(wxBody.includes('현 위치 다시 불러오기'), '현 위치 다시 불러오기 버튼');
+  ok(wxBody.includes('인천 기준'), '폴백 안내 문구');
+  ok($$('#modalBody .wxm-day').length === 10, '10일 예보 10행', $$('#modalBody .wxm-day').length);
+  ok($('#modalBody .wxm-day').textContent.includes('오늘'), '첫 행은 오늘');
+  ok(wxBody.includes('체감') && wxBody.includes('습도') && wxBody.includes('바람') && wxBody.includes('강수확률'), '오늘 요약(체감·습도·바람·강수확률)');
+  ok($$('#modalBody .wxm-hour').length === 8, '오늘 시간대별 8칸', $$('#modalBody .wxm-hour').length);
+  ok($('#wxPlace').textContent === '인천' && /\d+°/.test($('#wxTemp').textContent), '홈 카드도 같은 위치·온도', `${$('#wxPlace').textContent} ${$('#wxTemp').textContent}`);
+
+  Object.defineProperty(w.navigator, 'geolocation', {
+    configurable: true,
+    value: { getCurrentPosition: (okCb, errCb) => setTimeout(() => errCb({ code: 1, message: 'denied' }), 0) },
+  });
+  click($('[data-act="wx-relocate"]'));
+  await new Promise(r => setTimeout(r, 80));
+  ok($('#modalBody').textContent.includes('위치 권한이 없어 인천 기준이에요'), '위치 거절 → 인천 폴백 안내', $('#modalBody').textContent.slice(0, 80));
+  ok($('#wxPlace').textContent === '인천', '거절해도 홈 카드는 인천 유지');
+
+  Object.defineProperty(w.navigator, 'geolocation', {
+    configurable: true,
+    value: { getCurrentPosition: okCb => setTimeout(() => okCb({ coords: { latitude: 37.5665, longitude: 126.978 } }), 0) },
+  });
+  click($('[data-act="wx-relocate"]'));
+  await new Promise(r => setTimeout(r, 80));
+  ok($('#modalBody').textContent.includes('📍 서울'), '위치 허용 → 역지오코딩 이름 표시', $('#modalBody').textContent.slice(0, 60));
+  ok($('#wxPlace').textContent === '서울', '홈 카드도 현 위치(서울) 반영', $('#wxPlace').textContent);
+  ok(!$('#modalBody').textContent.includes('인천 기준'), '허용 후 폴백 안내 사라짐');
+  const savedPos = JSON.parse(w.localStorage.getItem('gayeon_wx_pos_v1') || 'null');
+  ok(!!savedPos && savedPos.name === '서울' && Math.abs(savedPos.lat - 37.5665) < 0.01, '현 위치를 기기에 저장', savedPos && JSON.stringify(savedPos));
+
+  click($('[data-act="modal-close"]'));
+  ok($('#modalRoot').hidden, '날씨 모달 닫힘');
+  wcard.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  ok(!$('#modalRoot').hidden, 'Enter 키로도 날씨 모달 열림');
+  click($('[data-act="modal-close"]'));
+  const cssWx = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(/\.weather-card\{[^}]*cursor:pointer/.test(cssWx), '날씨 카드 cursor:pointer');
+  ok(/\.wxm-day\{[^}]*font-size:14px/.test(cssWx), '10일 예보 행 14px');
+
   console.log('▸ STUDY 모달');
   click($('[data-act="open-study"]'));
   ok(!$('#modalRoot').hidden, 'STUDY 모달 열림');

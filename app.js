@@ -470,6 +470,7 @@ const MODALS = {
   memo: { title: '🕯️ 메모', render: renderMemoModal },
   settings: { title: '🎨 꾸미기 설정', render: renderSettingsModal },
   day: { title: '', render: renderDayModal },
+  weather: { title: '🌤️ 날씨 · 10일 예보', render: renderWeatherModal },
 };
 
 function openModal(type, arg) {
@@ -1374,6 +1375,8 @@ document.addEventListener('click', async ev => {
     case 'open-wishlist': openModal('wishlist'); break;
     case 'open-memo': openModal('memo'); break;
     case 'open-settings': openModal('settings'); break;
+    case 'open-weather': openWeather(); break;
+    case 'wx-relocate': wxRefresh(true); break;
     case 'modal-close': closeModal(); break;
     case 'open-day': openModal('day', t.dataset.date); break;
 
@@ -1796,11 +1799,30 @@ const WX = {
   85: ['🌨️', '소낙눈'], 86: ['❄️', '소낙눈'],
   95: ['⛈️', '뇌우'], 96: ['⛈️', '뇌우·우박'], 99: ['⛈️', '뇌우·우박'],
 };
+const WX_CACHE_KEY = 'gayeon_wx_v1';
+const WX_POS_KEY = 'gayeon_wx_pos_v1';
+const INCHEON = { lat: 37.4563, lon: 126.7052, name: '인천' };
+const wxState = { pos: null, place: '인천', note: '', data: null, days: [], hours: [], at: 0, status: 'idle', busy: false };
+
+function readWxPos() {
+  try {
+    const p = JSON.parse(localStorage.getItem(WX_POS_KEY) || 'null');
+    if (p && isFinite(p.lat) && isFinite(p.lon)) return p;
+  } catch (e) {}
+  return null;
+}
+function saveWxPos(p) { try { localStorage.setItem(WX_POS_KEY, JSON.stringify(p)); } catch (e) {} }
+function applyWxPos(pos, note) {
+  wxState.pos = pos;
+  wxState.place = (pos && pos.name) || '현 위치';
+  wxState.note = note || '';
+  const el = $('#wxPlace'); if (el) el.textContent = wxState.place;
+}
+const wxOf = code => WX[code] || ['🌥️', '구름'];
 function paintWeather(j) {
   const cur = j.current || {};
   const daily = j.daily || {};
-  const code = cur.weather_code != null ? cur.weather_code : 0;
-  const [emoji, label] = WX[code] || ['🌥️', '구름'];
+  const [emoji, label] = wxOf(cur.weather_code != null ? cur.weather_code : 0);
   $('#wxIcon').textContent = emoji;
   $('#wxTemp').textContent = `${Math.round(cur.temperature_2m)}°`;
   $('#wxDesc').textContent = label;
@@ -1814,28 +1836,266 @@ function paintWeather(j) {
   if (cur.wind_speed_10m != null) parts.push(`바람 ${Math.round(cur.wind_speed_10m)}km/h`);
   $('#wxExtra').innerHTML = parts.map(p => `<span>${esc(p)}</span>`).join('');
 }
-async function loadWeather() {
-  const KEY = 'gayeon_wx_v1';
+
+/* 10일 예보 · 오늘 시간대별 — 현 위치(없으면 인천) 기준 Open-Meteo */
+async function fetchWx(pos) {
+  const url = 'https://api.open-meteo.com/v1/forecast'
+    + `?latitude=${pos.lat}&longitude=${pos.lon}`
+    + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m'
+    + '&hourly=temperature_2m,weather_code,relative_humidity_2m,precipitation_probability'
+    + '&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset'
+    + '&timezone=Asia%2FSeoul&forecast_days=10';
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error('weather http ' + res.status);
+  return res.json();
+}
+function wxNextHours(j, n = 8) {
+  const H = j.hourly || {}, times = H.time || [];
+  const now = new Date();
+  const stamp = `${isoOf(now)}T${pad2(now.getHours())}:00`;
+  let i = times.findIndex(t => t >= stamp);
+  if (i < 0) i = 0;
+  return times.slice(i, i + n).map((t, k) => ({
+    time: t,
+    temp: H.temperature_2m ? H.temperature_2m[i + k] : null,
+    code: H.weather_code ? H.weather_code[i + k] : 0,
+    rain: H.precipitation_probability ? H.precipitation_probability[i + k] : null,
+  }));
+}
+function wxNextDays(j) {
+  const D = j.daily || {}, times = D.time || [];
+  return times.slice(0, 10).map((t, i) => ({
+    date: t,
+    code: D.weather_code ? D.weather_code[i] : 0,
+    hi: D.temperature_2m_max ? D.temperature_2m_max[i] : null,
+    lo: D.temperature_2m_min ? D.temperature_2m_min[i] : null,
+    rain: D.precipitation_probability_max ? D.precipitation_probability_max[i] : null,
+    wind: D.wind_speed_10m_max ? D.wind_speed_10m_max[i] : null,
+    sunrise: D.sunrise ? D.sunrise[i] : null,
+    sunset: D.sunset ? D.sunset[i] : null,
+  }));
+}
+function wxDayLabel(ds) {
+  const diff = daysBetween(todayISO(), ds);
+  if (diff === 0) return '오늘';
+  if (diff === 1) return '내일';
+  const d = parseISO(ds);
+  return `${d.getMonth() + 1}/${d.getDate()} (${WEEK_KO[d.getDay()]})`;
+}
+
+/* 역지오코딩 — 실패해도 예보는 계속 (이름만 '현 위치') */
+async function reverseGeocode(lat, lon) {
   try {
-    const cached = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (cached && Date.now() - cached.t < 30 * 60 * 1000) { paintWeather(cached.d); }
+    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ko`, { cache: 'no-store' });
+    if (r.ok) {
+      const j = await r.json();
+      const name = j.city || j.locality || j.principalSubdivision || '';
+      if (name) return name;
+    }
   } catch (e) {}
   try {
-    const url = 'https://api.open-meteo.com/v1/forecast?latitude=37.4563&longitude=126.7052'
-      + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m'
-      + '&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FSeoul&forecast_days=1';
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('weather http ' + res.status);
-    const j = await res.json();
-    localStorage.setItem(KEY, JSON.stringify({ t: Date.now(), d: j }));
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=ko`, { cache: 'no-store' });
+    if (r.ok) {
+      const j = await r.json(); const a = j.address || {};
+      const name = a.city || a.town || a.county || a.borough || a.suburb || '';
+      if (name) return name;
+    }
+  } catch (e) {}
+  return '현 위치';
+}
+function wxLocate() {
+  return new Promise(resolve => {
+    const g = typeof navigator !== 'undefined' ? navigator.geolocation : null;
+    if (!g || !g.getCurrentPosition) return resolve({ pos: null, note: '이 기기에서는 위치를 못 받아 인천 기준으로 보여드려요' });
+    let done = false;
+    const finish = v => { if (!done) { done = true; clearTimeout(timer); resolve(v); } };
+    const timer = setTimeout(() => finish({ pos: null, note: '위치를 찾는 데 시간이 걸려 인천 기준으로 보여드려요' }), 9000);
+    try {
+      g.getCurrentPosition(async p => {
+        const lat = p.coords.latitude, lon = p.coords.longitude;
+        const name = await reverseGeocode(lat, lon);
+        const pos = { lat, lon, name, ts: Date.now(), src: 'geo' };
+        saveWxPos(pos);
+        finish({ pos, note: '' });
+      }, err => {
+        const code = err && err.code;
+        finish({ pos: null, note: code === 1 ? '위치 권한이 없어 인천 기준이에요' : '위치를 못 찾아 인천 기준으로 보여드려요' });
+      }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 });
+    } catch (e) { finish({ pos: null, note: '위치를 못 받아 인천 기준으로 보여드려요' }); }
+  });
+}
+
+async function wxRefresh(useGeo) {
+  if (wxState.busy) return;
+  wxState.busy = true; wxState.status = 'loading';
+  if (openModalType === 'weather') renderModal();
+  try {
+    if (useGeo) {
+      const r = await wxLocate();
+      if (r && r.pos) applyWxPos(r.pos, '');
+      else applyWxPos(wxState.pos && wxState.pos.src === 'geo' ? wxState.pos : Object.assign({}, INCHEON), (r && r.note) || '위치 권한이 없어 인천 기준이에요');
+    }
+    const pos = wxState.pos || Object.assign({}, INCHEON);
+    const j = await fetchWx(pos);
+    wxState.data = j;
+    wxState.hours = wxNextHours(j, 8);
+    wxState.days = wxNextDays(j);
+    wxState.at = Date.now();
+    wxState.status = 'ready';
+    try { localStorage.setItem(WX_CACHE_KEY, JSON.stringify({ t: Date.now(), d: j, pos, place: wxState.place })); } catch (e) {}
     paintWeather(j);
   } catch (e) {
+    wxState.status = 'error';
+    if (!wxState.data) {
+      const desc = $('#wxDesc');
+      if (desc) desc.textContent = '날씨를 불러오지 못했어요';
+      const extra = $('#wxExtra');
+      if (extra && wxState.pos) extra.innerHTML = `<span>${esc(wxState.place)} 기준 · 잠시 뒤 다시 시도할게요</span>`;
+    }
+  } finally {
+    wxState.busy = false;
+    if (openModalType === 'weather') renderModal();
+  }
+}
+
+function openWeather() {
+  const saved = readWxPos();
+  if (!wxState.pos) applyWxPos(saved || Object.assign({}, INCHEON), saved ? '' : '');
+  openModal('weather');
+  wxRefresh(true);
+}
+async function loadWeather(opts = {}) {
+  try {
+    const cached = JSON.parse(localStorage.getItem(WX_CACHE_KEY) || 'null');
+    if (cached && cached.d && Date.now() - cached.t < 30 * 60 * 1000) {
+      if (cached.pos) applyWxPos(cached.pos, '');
+      paintWeather(cached.d);
+      wxState.data = cached.d; wxState.at = cached.t;
+      wxState.hours = wxNextHours(cached.d, 8);
+      wxState.days = wxNextDays(cached.d);
+    }
+  } catch (e) {}
+  let pos = readWxPos();
+  /* 이미 위치를 허용해 둔 기기라면 묻지 않고 조용히 현 위치 사용 */
+  if (!pos && opts.silentLocate) {
+    try {
+      const perm = navigator.permissions && await navigator.permissions.query({ name: 'geolocation' });
+      if (perm && perm.state === 'granted') {
+        const r = await wxLocate();
+        if (r && r.pos) pos = r.pos;
+      }
+    } catch (e) {}
+  }
+  if (!pos) pos = Object.assign({}, INCHEON);
+  applyWxPos(pos, '');
+  try {
+    const j = await fetchWx(pos);
+    wxState.data = j;
+    wxState.hours = wxNextHours(j, 8);
+    wxState.days = wxNextDays(j);
+    wxState.at = Date.now();
+    wxState.status = 'ready';
+    localStorage.setItem(WX_CACHE_KEY, JSON.stringify({ t: Date.now(), d: j, pos, place: wxState.place }));
+    paintWeather(j);
+    if (openModalType === 'weather') renderModal();
+  } catch (e) {
+    wxState.status = 'error';
     const desc = $('#wxDesc');
     if (desc) desc.textContent = '날씨를 불러오지 못했어요';
     const extra = $('#wxExtra');
-    if (extra) extra.innerHTML = '<span>인천 기준 · 잠시 뒤 다시 시도할게요</span>';
+    if (extra) extra.innerHTML = `<span>${esc(wxState.place)} 기준 · 잠시 뒤 다시 시도할게요</span>`;
   }
 }
+
+/* ───────────── weather modal ───────────── */
+function renderWeatherModal() {
+  const s = wxState;
+  const stamp = s.at ? new Date(s.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const top = `<div class="wxm-bar">
+    <div class="wxm-where">
+      <span class="wxm-place">📍 ${esc(s.place)}</span>
+      ${s.note ? `<span class="wxm-note">${esc(s.note)}</span>` : ''}
+      ${stamp ? `<span class="wxm-stamp">${esc(stamp)} 기준</span>` : ''}
+    </div>
+    <button class="btn tiny flat wxm-reload" data-act="wx-relocate"${s.busy ? ' disabled' : ''}>${s.busy ? '불러오는 중…' : '📍 현 위치 다시 불러오기'}</button>
+  </div>`;
+
+  if (!s.data) {
+    const msg = s.status === 'error'
+      ? `${esc(s.place)} 날씨를 불러오지 못했어요 · 잠시 뒤 다시 시도해 주세요`
+      : '날씨를 불러오는 중이에요…';
+    return top + `<section class="sec"><div class="wxm-loading">${msg}</div></section>`;
+  }
+
+  const cur = s.data.current || {};
+  const [em, label] = wxOf(cur.weather_code != null ? cur.weather_code : 0);
+  const d0 = s.days[0] || {};
+  const rainNow = s.hours.length ? s.hours[0].rain : d0.rain;
+  const stat = (k, v) => `<div class="wxm-stat"><span>${k}</span><b>${v}</b></div>`;
+  const hhmm = t => (t && t.length >= 16 ? t.slice(11, 16) : '');
+
+  const today = `<section class="sec">
+    <div class="sec-head"><h3><span class="em">🌤️</span>오늘</h3><span class="sec-note">${esc(wxDayLabel(d0.date || todayISO()))} · ${esc(label)}</span></div>
+    <div class="wxm-today">
+      <div class="wxm-now">
+        <div class="wxm-big-emoji">${em}</div>
+        <div>
+          <div class="wxm-now-temp">${Math.round(cur.temperature_2m)}°</div>
+          <div class="wxm-now-desc">${esc(label)}</div>
+        </div>
+      </div>
+      <div class="wxm-stats">
+        ${stat('체감', cur.apparent_temperature != null ? `${Math.round(cur.apparent_temperature)}°` : '-')}
+        ${stat('습도', cur.relative_humidity_2m != null ? `${cur.relative_humidity_2m}%` : '-')}
+        ${stat('바람', cur.wind_speed_10m != null ? `${Math.round(cur.wind_speed_10m)}km/h` : '-')}
+        ${stat('강수확률', rainNow != null ? `${Math.round(rainNow)}%` : '-')}
+        ${stat('최고/최저', `${d0.hi != null ? Math.round(d0.hi) : '-'}° / ${d0.lo != null ? Math.round(d0.lo) : '-'}°`)}
+        ${stat('일출/일몰', `${hhmm(d0.sunrise) || '-'} / ${hhmm(d0.sunset) || '-'}`)}
+      </div>
+    </div>
+  </section>`;
+
+  const hours = s.hours.length ? `<section class="sec">
+    <div class="sec-head"><h3><span class="em">🕒</span>오늘 시간대별</h3><span class="sec-note">앞으로 ${s.hours.length}시간</span></div>
+    <div class="wxm-hours">${s.hours.map((h, k) => {
+      const [he] = wxOf(h.code);
+      const hr = h.time.slice(11, 13);
+      return `<div class="wxm-hour${k === 0 ? ' now' : ''}">
+        <span class="t">${k === 0 ? '지금' : `${Number(hr)}시`}</span>
+        <span class="e">${he}</span>
+        <span class="d">${Math.round(h.temp)}°</span>
+        ${h.rain != null && h.rain >= 20 ? `<span class="r">💧${Math.round(h.rain)}%</span>` : ''}
+      </div>`;
+    }).join('')}</div>
+  </section>` : '';
+
+  const los = s.days.map(d => Number(d.lo)).filter(n => isFinite(n));
+  const his = s.days.map(d => Number(d.hi)).filter(n => isFinite(n));
+  const tMin = los.length ? Math.min(...los) : 0;
+  const tMax = his.length ? Math.max(...his) : 1;
+  const span = Math.max(1, tMax - tMin);
+  const days = `<section class="sec">
+    <div class="sec-head"><h3><span class="em">📅</span>10일 예보</h3><span class="sec-count">${s.days.length}일</span><span class="sec-note">최저 ↔ 최고</span></div>
+    <div class="wxm-days">${s.days.map((d, i) => {
+      const [de, dl] = wxOf(d.code);
+      let left = Math.round((d.lo - tMin) / span * 100);
+      let width = Math.max(9, Math.round((d.hi - d.lo) / span * 100));
+      if (left + width > 100) left = 100 - width;
+      return `<div class="wxm-day${i === 0 ? ' today' : ''}">
+        <span class="wd">${esc(wxDayLabel(d.date))}</span>
+        <span class="ic">${de}</span>
+        <span class="lb">${esc(dl)}${d.rain != null && d.rain >= 20 ? `<span class="r">💧${Math.round(d.rain)}%</span>` : ''}</span>
+        <span class="bar"><i style="left:${left}%;width:${width}%"></i></span>
+        <span class="lo">${d.lo != null ? Math.round(d.lo) : '-'}°</span>
+        <span class="hi">${d.hi != null ? Math.round(d.hi) : '-'}°</span>
+      </div>`;
+    }).join('')}</div>
+    <div class="wxm-foot">Open-Meteo 예보 · 현 위치 기준</div>
+  </section>`;
+
+  return top + today + hours + days;
+}
+
 
 /* ───────────── todo form ───────────── */
 function bindTodo() {
@@ -1860,12 +2120,20 @@ function boot() {
   setupFileInputs();
   tickClock();
   setInterval(tickClock, 1000);
-  loadWeather();
-  setInterval(loadWeather, 30 * 60 * 1000);
+  loadWeather({ silentLocate: true });
+  setInterval(() => loadWeather({ silentLocate: true }), 30 * 60 * 1000);
 
   // keyboard shortcuts
   document.addEventListener('keydown', ev => {
     if (ev.key === 'Escape' && openModalType) closeModal();
+  });
+  /* 날씨 카드는 버튼처럼 Enter·Space로도 열린다 */
+  document.addEventListener('keydown', ev => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const card = ev.target && ev.target.closest && ev.target.closest('[data-act="open-weather"]');
+    if (!card) return;
+    ev.preventDefault();
+    openWeather();
   });
 
   // sync start (supabase cdn may load after app.js)
