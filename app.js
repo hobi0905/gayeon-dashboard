@@ -265,13 +265,9 @@ function applyTheme() {
 function switchTheme(next) {
   const prev = themeOf(state);
   if (!THEMES[next] || next === prev) return;
-  const oldCoverPresets = prev === 'xmas' ? XMAS_PRESETS.map(p => p.src)
-    : [DEFAULT_COVER, 'assets/photo-sea.jpg', 'assets/photo-cd.jpg', 'assets/cover-cozy-cat.jpg'];
-  const oldCatPresets = prev === 'xmas' ? XMAS_PRESETS.map(p => p.src)
-    : [DEFAULT_CAT, 'assets/photo-sea.jpg', 'assets/photo-cd.jpg', DEFAULT_COVER];
-  /* 테마 프리셋으로 고른 사진은 테마를 따라 바뀌고, 직접 올린 사진은 그대로 둔다 */
-  if (!state.cover || oldCoverPresets.includes(state.cover)) state.cover = null;
-  if (!state.cat || oldCatPresets.includes(state.cat)) state.cat = null;
+  /* 기본 사진(테마 기본값)만 테마를 따라 바뀌고, 직접 고른 프리셋·올린 사진은 그대로 둔다 */
+  if (!state.cover || state.cover === THEMES[prev].cover) state.cover = null;
+  if (!state.cat || state.cat === THEMES[prev].cat) state.cat = null;
   state.theme = next;
   commit();
   toast(next === 'xmas' ? '🎄 크리스마스 테마로 바꿨어요' : '🩵 파스텔 하늘 테마로 돌아왔어요');
