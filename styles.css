@@ -332,7 +332,7 @@ ul{list-style:none;margin:0;padding:0;}
 .cal-nav{display:flex;gap:6px;}
 .mini-btn{
   border:1px solid var(--line);background:#fff;border-radius:9px;
-  min-width:30px;height:30px;font-size:15px;color:#7d9ab0;line-height:1;
+  min-width:32px;height:32px;font-size:15px;color:#7d9ab0;line-height:1;
   display:inline-flex;align-items:center;justify-content:center;
 }
 .mini-btn.wide{width:auto;padding:0 10px;font-size:12px;font-family:var(--font-body);}
@@ -672,4 +672,26 @@ a{color:#6f9dc2;}
   .dday-card{min-height:84px;}
   .cat-photo{max-height:150px;}
   .cat-photo img{max-height:150px;}
+}
+
+/* ───────────── 터치 기기: 손가락에 맞는 크기 ───────────── */
+@media (hover:none), (pointer:coarse){
+  .mini-btn{min-width:38px;height:38px;font-size:17px;}
+  .mini-btn.wide{height:38px;padding:0 12px;font-size:12.5px;}
+  .ghost-btn{padding:9px 15px;font-size:13px;}
+  .icon-x{padding:6px 8px;font-size:13px;border-radius:8px;}
+  .todo-item{padding:8px 4px;}
+  .todo-item .chk{width:22px;height:22px;font-size:12px;}
+  .todo-item .del{padding:6px;font-size:14px;}
+  .check-row{padding:9px 6px;}
+  .check-row .chk{width:22px;height:22px;font-size:12px;}
+  .h-cell{width:27px;height:27px;font-size:12px;}
+  .habit-grid{grid-template-columns:1fr repeat(7,30px);}
+  .switch{width:44px;height:25px;}
+  .switch:after{width:21px;height:21px;}
+  .switch.on:after{transform:translateX(19px);}
+  .mood-btn{width:44px;height:42px;font-size:20px;}
+  .btn{padding:10px 14px;font-size:13.5px;}
+  .btn.tiny{padding:7px 11px;font-size:12px;}
+  .nav-btn{padding:13px 14px;}
 }
