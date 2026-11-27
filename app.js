@@ -75,6 +75,27 @@ const SEED_EXAMS = [
 ];
 
 const DEFAULT_CODE = 'GAEYON-SKY-2026';
+const DEFAULT_COVER = 'assets/cover-sky-cat.jpg';
+const DEFAULT_CAT = 'assets/cat-card.jpg';
+const COVER_PRESETS = [
+  { src: DEFAULT_COVER, label: '하늘 고양이' },
+  { src: 'assets/photo-sea.jpg', label: '바다' },
+  { src: 'assets/photo-cd.jpg', label: 'CD 케이스' },
+  { src: 'assets/cover-cozy-cat.jpg', label: '코지 캣' },
+];
+const CAT_PRESETS = [
+  { src: DEFAULT_CAT, label: '아침 고양이' },
+  { src: 'assets/photo-sea.jpg', label: '바다' },
+  { src: 'assets/photo-cd.jpg', label: 'CD 케이스' },
+  { src: DEFAULT_COVER, label: '하늘 고양이' },
+];
+function presetRow(kind, presets, current) {
+  const cur = current || presets[0].src;
+  return `<div class="preset-row">${presets.map(p => `
+    <button class="preset ${cur === p.src ? 'on' : ''}" data-act="${kind === 'cover' ? 'set-cover' : 'set-cat'}" data-src="${esc(p.src)}" title="${esc(p.label)}">
+      <img src="${esc(p.src)}" alt="${esc(p.label)}"><span>${esc(p.label)}</span>
+    </button>`).join('')}</div>`;
+}
 
 function seedState() {
   return {
@@ -751,21 +772,23 @@ function renderSettingsModal() {
     <div class="set-grid">
       <div class="set-card">
         <h4>🖼 상단 커버</h4>
-        <img class="thumb" src="${state.cover ? esc(state.cover) : 'assets/cover-sky-cat.jpg'}" alt="cover">
+        <img class="thumb" src="${esc(state.cover || DEFAULT_COVER)}" alt="cover">
+        ${presetRow('cover', COVER_PRESETS, state.cover || DEFAULT_COVER)}
         <div class="add-form">
-          <button class="btn" data-act="pick-cover">이미지 올리기</button>
+          <button class="btn" data-act="pick-cover">내 사진 올리기</button>
           <button class="btn flat" data-act="reset-cover">기본으로</button>
         </div>
-        <div class="hint">사진을 올리면 아이패드 화면에 맞게 자동으로 줄여 저장해요.</div>
+        <div class="hint">감성 사진 중에 고르거나, 내 사진을 올리면 아이패드 화면에 맞게 자동으로 줄여 저장해요.</div>
       </div>
       <div class="set-card">
         <h4>🐱 고양이 카드</h4>
-        <img class="thumb" src="${state.cat ? esc(state.cat) : 'assets/cat-card.jpg'}" alt="cat">
+        <img class="thumb arch" src="${esc(state.cat || DEFAULT_CAT)}" alt="cat">
+        ${presetRow('cat', CAT_PRESETS, state.cat || DEFAULT_CAT)}
         <div class="add-form">
           <button class="btn" data-act="pick-cat">사진 바꾸기</button>
           <button class="btn flat" data-act="reset-cat">기본으로</button>
         </div>
-        <div class="hint">오늘의 고양이 자리에 넣을 사진을 골라주세요.</div>
+        <div class="hint">아치형 카드에 들어갈 사진을 골라주세요.</div>
       </div>
     </div>
 
@@ -1328,6 +1351,8 @@ document.addEventListener('click', async ev => {
     case 'event-del': state.events = state.events.filter(x => x.id !== id); commit(); break;
 
     /* settings */
+    case 'set-cover': state.cover = t.dataset.src === DEFAULT_COVER ? null : t.dataset.src; commit(); break;
+    case 'set-cat': state.cat = t.dataset.src === DEFAULT_CAT ? null : t.dataset.src; commit(); break;
     case 'pick-cover': $('#coverFile').click(); break;
     case 'pick-cat': $('#catFile').click(); break;
     case 'reset-cover': state.cover = null; commit(); toast('기본 커버로 돌아왔어요'); break;

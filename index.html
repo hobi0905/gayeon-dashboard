@@ -14,10 +14,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 <div class="app" id="app">
+  <div class="top-band" aria-hidden="true"></div>
 
   <header class="cover" id="cover">
     <img id="coverImg" src="assets/cover-sky-cat.jpg" alt="cover">
@@ -36,6 +37,8 @@
       <span class="quote-stick"></span>
       <span class="quote-text" id="quoteText" contenteditable="true" spellcheck="false" data-field="quote">“호비랑 서리를 먹여살리기 위한 몸부림”</span>
     </div>
+
+    <div class="stripe-rule" aria-hidden="true"></div>
 
     <div class="layout">
       <!-- ─────────── left sidebar ─────────── -->
@@ -147,6 +150,6 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="app.js?v=5" defer></script>
+<script src="app.js?v=6" defer></script>
 </body>
 </html>
