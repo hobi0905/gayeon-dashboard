@@ -378,11 +378,13 @@ function renderHomeGoals() {
   const done = items.filter(i => i.done).length;
   const pct = items.length ? Math.round(done / items.length * 100) : 0;
   box.innerHTML = `
-    <div class="hg-top">
+    ${items.length
+      ? `<div class="hg-top">
       <span class="hg-count">${done}/${items.length} 완료</span>
       <span class="hg-pct">${pct}%</span>
     </div>
-    <div class="progress hg-progress"><i style="width:${pct}%"></i></div>
+    <div class="progress hg-progress"><i style="width:${pct}%"></i></div>`
+      : ''}
     ${items.length
       ? `<div class="check-list hg-list">${goalRowsHtml('month', 'hg-row')}</div>`
       : '<div class="hg-empty">이번 달에 꼭 해내고 싶은 걸 적어보세요 🩵</div>'}
@@ -679,7 +681,7 @@ function renderModal() {
   if (openModalType === 'day') $('#modalTitle').textContent = `🗓 ${fmtDateKo(openModalArg)}`;
   else if (openModalType === 'fin-detail') {
     const meta = FIN_DETAIL[openModalArg] || FIN_DETAIL.spend;
-    $('#modalTitle').textContent = `${meta.em} ${meta.label} 상세`;
+    $('#modalTitle').textContent = `${meta.em} ${meta.short} 상세`;
   }
   else $('#modalTitle').textContent = cfg.title;
   const body = $('#modalBody');
@@ -941,10 +943,17 @@ function renderInvestModal() {
 
 /* ───────────── 가계부 요약 카드 → 이번 달 상세 + 원형 그래프 ───────────── */
 const FIN_DETAIL = {
-  income: { label: '이번 달 수입', em: '💚', pill: 'income', sign: '＋' },
-  spend: { label: '이번 달 지출', em: '💸', pill: 'out', sign: '−' },
-  plan: { label: '예정 지출', em: '🗓', pill: 'plan', sign: '＋' },
+  income: { label: '이번 달 수입', short: '수입', em: '💚', pill: 'income', sign: '＋' },
+  spend: { label: '이번 달 지출', short: '지출', em: '💸', pill: 'out', sign: '−' },
+  plan: { label: '예정 지출', short: '예정 지출', em: '🗓', pill: 'plan', sign: '＋' },
 };
+/* 도넛 가운데 글씨는 돈이 커도 넘치지 않게 줄여 쓴다 (정확한 합계는 위 제목줄에) */
+function compactWon(n) {
+  const v = Math.abs(Number(n) || 0);
+  if (v >= 100000000) return `₩${String(Number((v / 100000000).toFixed(2)))}억`;
+  if (v >= 10000) return `₩${Math.round(v / 10000).toLocaleString('ko-KR')}만`;
+  return `₩${won(v)}`;
+}
 
 /* 그 달의 상세 내역 — 수입·지출은 내역에서, 예정 지출은 정기구독·구매예정에서 모은다 */
 function financeMonthItems(kind) {
@@ -1001,7 +1010,7 @@ function donutSvg(rows, total) {
     <circle class="dring" cx="80" cy="80" r="${R}" fill="none" stroke-width="${SW}"></circle>
     ${segs}
     <text class="donut-cap" x="80" y="70" text-anchor="middle">합계</text>
-    <text class="donut-total" x="80" y="90" text-anchor="middle">₩${won(total)}</text>
+    <text class="donut-total" x="80" y="90" text-anchor="middle">${compactWon(total)}</text>
   </svg>`;
 }
 
@@ -1024,7 +1033,7 @@ function renderFinanceDetailModal(kind) {
   const { total, rows } = chartParts(items);
   const chart = rows.length
     ? `<div class="chart-wrap">${donutSvg(rows, total)}<div class="chart-side">${chartLegendHtml(rows)}</div></div>`
-    : `<div class="chart-empty">이번 달 ${key === 'plan' ? '예정 지출' : key === 'income' ? '수입' : '지출'} 내역이 없어서 보여줄 비율이 없어요 🩵</div>`;
+    : `<div class="chart-empty">${m}월 ${meta.short} 내역이 없어서 보여줄 비율이 없어요 🩵</div>`;
   const rowsHtml = items.length
     ? `<div class="fd-list">${items.map(i => `
       <div class="fd-row">
@@ -1033,11 +1042,11 @@ function renderFinanceDetailModal(kind) {
         <span class="fd-cat">${esc(i.cat || '기타')}</span>
         <span class="fd-amt ${meta.pill}">${meta.sign}₩${won(i.amount)}</span>
       </div>`).join('')}</div>`
-    : `<div class="empty">이번 달 ${meta.label} 내역이 아직 없어요</div>`;
+    : `<div class="empty">${m}월 ${meta.short} 내역이 아직 없어요</div>`;
   return `
     <section class="sec">
       <div class="sec-head">
-        <h3><span class="em">${meta.em}</span>${y}년 ${m}월 ${meta.label}</h3>
+        <h3><span class="em">${meta.em}</span>${y}년 ${m}월 ${meta.short}</h3>
         <span class="sec-count">${items.length}건</span>
         <span class="sec-note">합계 ₩${won(total)}</span>
       </div>
