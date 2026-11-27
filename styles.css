@@ -33,6 +33,14 @@
   --font-body:'Gowun Dodum','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
   --font-serif:'Gowun Batang','Apple SD Gothic Neo',Georgia,serif;
   --font-num:'Quicksand','Gowun Dodum',system-ui,sans-serif;
+
+  /* 홈 카드 아이콘·테마 장식 아이콘은 테마·화면 폭과 상관없이 이 크기로 고정 (파스텔 하늘 기준) */
+  --icon-box:20px;
+  --icon-font:14px;
+  --hero-wx-icon:32px;
+  --hero-wx-temp:32px;
+  --hero-clock-num:42px;
+  --hero-cat-photo:200px;
 }
 
 *{box-sizing:border-box;}
@@ -71,8 +79,10 @@ ul{list-style:none;margin:0;padding:0;}
 }
 .top-band::after{
   content:'♡';
+  display:inline-flex;align-items:center;justify-content:center;
   font-size:11px;line-height:1;color:#a9cdea;background:#fbfdff;
-  padding:1px 6px 0;border-radius:0 0 8px 8px;
+  width:18px;height:14px;padding:0 4px;
+  border-radius:0 0 8px 8px;
 }
 .stripe-rule{
   height:9px;border-radius:99px;
@@ -132,6 +142,7 @@ ul{list-style:none;margin:0;padding:0;}
 .avatar-preview{display:flex;align-items:center;gap:12px;}
 .page-title::before{
   content:'✧';
+  display:inline-block;width:1em;height:1em;line-height:1;text-align:center;
   color:#bfdcf1;
   font-size:.5em;
   vertical-align:.62em;
@@ -149,7 +160,11 @@ ul{list-style:none;margin:0;padding:0;}
 }
 .ghost-btn:hover{background:var(--sky-050);transform:translateY(-1px);}
 .theme-toggle{display:inline-flex;align-items:center;gap:6px;}
-.theme-toggle .tt-ico{font-size:14px;line-height:1;}
+.theme-toggle .tt-ico{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:var(--icon-box);height:var(--icon-box);
+  font-size:var(--icon-font);line-height:1;flex:none;
+}
 .theme-toggle .tt-label{font-size:13px;}
 
 .quote-bar{
@@ -287,7 +302,7 @@ ul{list-style:none;margin:0;padding:0;}
 .flip-row{display:flex;align-items:center;gap:6px;}
 .flip{
   font-family:var(--font-num);font-weight:600;
-  font-size:clamp(30px,3.9vw,46px);line-height:1;
+  font-size:var(--hero-clock-num);line-height:1;
   color:#8fbde0;
   background:#fff;
   border:1px solid #e1effa;border-radius:13px;
@@ -307,7 +322,7 @@ ul{list-style:none;margin:0;padding:0;}
   55%{transform:rotateX(84deg);opacity:.55;}
   100%{transform:rotateX(0deg);}
 }
-.colon{font-family:var(--font-num);font-size:clamp(18px,2.2vw,26px);color:#c6ddf0;transform:translateY(-4px);letter-spacing:1px;}
+.colon{font-family:var(--font-num);font-size:24px;color:#c6ddf0;transform:translateY(-4px);letter-spacing:1px;}
 .clock-sub{font-size:11.5px;color:#9db3c4;display:flex;align-items:center;gap:5px;letter-spacing:.03em;
   border-top:1px dashed #e6f1fa;padding-top:8px;margin-top:2px;}
 .clock-sec{font-family:var(--font-num);font-weight:600;color:#9ec4e0;}
@@ -328,18 +343,22 @@ ul{list-style:none;margin:0;padding:0;}
 .wx-hint b{font-weight:600;font-size:12px;line-height:1;transform:translateY(-.5px);}
 .weather-card:hover .wx-hint{background:#e9f5ff;border-color:#d2e8f8;color:#6f9dc2;}
 .wx-top{display:flex;align-items:center;gap:10px;}
-.wx-emoji{font-size:clamp(26px,3vw,34px);line-height:1;}
-.wx-temp{font-family:var(--font-num);font-weight:600;font-size:clamp(26px,3vw,34px);color:#3f627b;letter-spacing:-.02em;}
+.wx-emoji{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:calc(var(--hero-wx-icon) + 8px);height:calc(var(--hero-wx-icon) + 8px);
+  font-size:var(--hero-wx-icon);line-height:1;
+}
+.wx-temp{font-family:var(--font-num);font-weight:600;font-size:var(--hero-wx-temp);color:#3f627b;letter-spacing:-.02em;}
 .wx-place{font-size:12.5px;color:#6c8397;}
 .wx-extra{font-size:11.5px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;}
 
 .cat-card{display:flex;flex-direction:column;gap:8px;padding:9px 9px 8px;overflow:hidden;}
 .cat-photo{
   border-radius:120px 120px 12px 12px;
-  overflow:hidden;flex:1;min-height:80px;background:#eef7ff;
+  overflow:hidden;flex:1 1 auto;height:var(--hero-cat-photo);min-height:var(--hero-cat-photo);background:#eef7ff;
   border:1px solid #eaf4fd;
 }
-.cat-photo img{width:100%;height:100%;object-fit:cover;min-height:80px;}
+.cat-photo img{width:100%;height:100%;object-fit:cover;object-position:center;min-height:0;}
 .cat-caption{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#8ba3b5;font-family:var(--font-num);letter-spacing:.06em;padding:0 2px;}
 
 /* ───────────── calendar ───────────── */
@@ -813,7 +832,6 @@ a{color:#6f9dc2;}
   .avatar{width:38px;height:38px;}
   .ph-title{gap:9px;}
   .fcal-day{min-height:44px;}
-  .cat-photo{max-height:190px;}
   .cal-chips{gap:3px;margin-bottom:2px;}
   .chip{height:6px;font-size:0;line-height:0;padding:0;border-radius:3px;border-left:none;}
   .cal-more{font-size:9px;}
@@ -834,8 +852,6 @@ a{color:#6f9dc2;}
   .sidebar{gap:14px;}
   .nav-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .dday-card{min-height:84px;}
-  .cat-photo{max-height:150px;}
-  .cat-photo img{max-height:150px;}
 }
 
 /* ───────────── 터치 기기: 손가락에 맞는 크기 ───────────── */

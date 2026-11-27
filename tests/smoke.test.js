@@ -431,6 +431,14 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.cover\{[^}]*height:clamp\(200px,24vw,320px\)/.test(css), '커버 사진 세로 높이 확대');
   ok(/\.page-head\{[^}]*margin-top:18px/.test(css), '프로필·제목을 커버 아래로');
 
+  console.log('▸ 홈 카드 아이콘 크기 고정');
+  ok(/--hero-wx-icon:32px/.test(css) && /\.wx-emoji\{[^}]*font-size:var\(--hero-wx-icon\)/.test(css), '날씨 아이콘 32px 고정');
+  ok(/\.wx-temp\{[^}]*font-size:var\(--hero-wx-temp\)/.test(css), '날씨 온도 글자 고정');
+  ok(/\.flip\{[^}]*font-size:var\(--hero-clock-num\)/.test(css), '시계 숫자 42px 고정');
+  ok(/\.cat-photo\{[^}]*height:var\(--hero-cat-photo\)/.test(css), '아치 사진 높이 200px 고정');
+  ok(/\.tt-ico\{[^}]*width:var\(--icon-box\)[^}]*height:var\(--icon-box\)/.test(css), '테마 아이콘 공통 박스 20px');
+  ok(!/body\[data-theme="xmas"\][^{]*(wx-emoji|\.flip|\.cat-photo|\.tt-ico)[^{]*\{[^}]*font-size/.test(css), '테마별 아이콘 크기 차이 없음');
+
   console.log('▸ 날짜 상세 모달');
   click($('[data-act="modal-close"]'));
   const c28 = $$('.cal-cell').find(c => c.dataset.date === '2026-11-28');
