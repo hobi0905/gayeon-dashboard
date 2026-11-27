@@ -64,8 +64,8 @@ const SEED_EXAMS = [
   ['숙대 교대원 원서접수', '2027-04-26', '지원', ''],
   ['인하대 교대원 원서접수', '2027-05-03', '지원', ''],
   ['숙대 교대원 면접', '2027-05-29', '면접', ''],
-  ['숙대 교대원 최초합격자 발표', '2027-06-10', '지원', ''],
-  ['인하대 교대원 합격자 발표', '2027-06-24', '면접', '10:00'],
+  ['숙대 교대원 최초합격자 발표', '2027-06-10', '발표', ''],
+  ['인하대 교대원 합격자 발표', '2027-06-24', '발표', '10:00'],
 ];
 
 const DEFAULT_CODE = 'GAEYON-SKY-2026';
@@ -179,6 +179,11 @@ function normalize(s) {
   const out = Object.assign({}, base, s);
   out.study = Object.assign({ month: [], week: [], today: [], exams: [] }, s.study || {});
   out.finance = Object.assign({ expenses: [], goals: [], invest: [], subs: [], planned: [] }, s.finance || {});
+  /* type이 없던 예전 지출 내역은 그대로 '지출'로 살린다 */
+  out.finance.expenses = (out.finance.expenses || []).filter(Boolean).map(e => Object.assign({}, e, {
+    type: e.type === 'income' ? 'income' : 'expense',
+    amount: Math.abs(Number(e.amount) || 0),
+  }));
   out.finance.subs = (out.finance.subs || []).map(sub => Object.assign({}, sub, {
     cycle: sub && sub.cycle === 'yearly' ? 'yearly' : 'monthly',
     month: Math.min(12, Math.max(1, Number(sub && sub.month) || 1)),
@@ -335,11 +340,35 @@ function eventsOn(dateStr) {
 function examsOn(dateStr) {
   return state.study.exams.filter(e => e.date === dateStr);
 }
-function expensesOn(dateStr) {
+/* 가계부 내역 종류 — type이 없는 예전 데이터는 전부 '지출'로 본다 */
+const EXPENSE_CATS = ['식비', '카페', '교통', '쇼핑', '생활', '병원·약', '공부', '여가', '기타'];
+const INCOME_CATS = ['알바·급여', '용돈', '부수입·환급', '기타'];
+const isIncome = e => !!(e && e.type === 'income');
+const amtOf = e => Math.abs(Number(e && e.amount) || 0);
+const catOptionHtml = (cats, sel) => cats.map(c => `<option${c === sel ? ' selected' : ''}>${esc(c)}</option>`).join('');
+function entriesOn(dateStr) {
   return state.finance.expenses.filter(e => e.date === dateStr);
 }
+function expensesOn(dateStr) {
+  return entriesOn(dateStr).filter(e => !isIncome(e));
+}
+function incomesOn(dateStr) {
+  return entriesOn(dateStr).filter(e => isIncome(e));
+}
 function spentOn(dateStr) {
-  return expensesOn(dateStr).reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
+  return expensesOn(dateStr).reduce((s, e) => s + amtOf(e), 0);
+}
+function incomeOn(dateStr) {
+  return incomesOn(dateStr).reduce((s, e) => s + amtOf(e), 0);
+}
+function moneyFormHtml(dateStr) {
+  return `<form class="add-form money-form" data-form="expense" data-date="${dateStr}">
+      <input class="in grow" name="title" placeholder="내역 (예: 점심 김밥)" maxlength="50" required>
+      <input class="in num" name="amount" inputmode="numeric" placeholder="금액" required>
+      <select class="in money-type" name="type" aria-label="종류"><option value="expense">지출</option><option value="income">수입</option></select>
+      <select class="in money-cat" name="cat" aria-label="카테고리">${catOptionHtml(EXPENSE_CATS)}</select>
+      <button class="btn primary" type="submit">추가</button>
+    </form>`;
 }
 function subCycleLabel(s) {
   const day = Number(s.day) || 1;
@@ -402,8 +431,8 @@ function renderCalendar() {
     const chips = chipList(ds);
     const shown = chips.slice(0, 2).map(c => `<span class="chip ${esc(c.cls)}">${esc(c.label)}</span>`).join('');
     const more = chips.length > 2 ? `<span class="cal-more">+${chips.length - 2}</span>` : '';
-    const sp = spentOn(ds), pl = plannedSum(ds);
-    const money = `${sp ? `<span class="cal-spend">₩${won(sp)}</span>` : ''}${pl ? `<span class="cal-plan">＋₩${won(pl)}</span>` : ''}`;
+    const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds);
+    const money = `${inc ? `<span class="cal-income">＋₩${won(inc)}</span>` : ''}${sp ? `<span class="cal-spend">−₩${won(sp)}</span>` : ''}${pl ? `<span class="cal-plan">＋₩${won(pl)}</span>` : ''}`;
     return `<button class="${cls}" data-act="open-day" data-date="${ds}">
       <span class="dnum">${d.getDate()}</span>
       <span class="cal-chips">${shown}${more}</span>
@@ -448,6 +477,8 @@ function renderModal() {
 }
 
 /* ───────────── STUDY modal ───────────── */
+/* 시험·지원 구분 — 추가·수정·D-DAY·캘린더 모두 이 목록을 쓴다 */
+const EXAM_TYPES = ['시험', '지원', '면접', '발표'];
 const GOAL_META = {
   month: { label: '이달의 목표', em: '🌙', ph: '이번 달에 꼭 해내고 싶은 것' },
   week: { label: '이주의 목표', em: '🌿', ph: '이번 주 안에 끝낼 것' },
@@ -504,7 +535,7 @@ function renderStudyModal() {
         <form class="add-form" data-form="exam">
           <input class="in grow" name="name" placeholder="시험·지원 이름" maxlength="60" autocomplete="off" required>
           <input class="in date" type="date" name="date" required>
-          <select class="in" name="type"><option>시험</option><option>지원</option><option>면접</option></select>
+          <select class="in" name="type">${EXAM_TYPES.map(t => `<option>${esc(t)}</option>`).join('')}</select>
           <input class="in grow" name="memo" placeholder="메모 (선택)" maxlength="60">
           <button class="btn primary" type="submit">추가</button>
         </form>
@@ -520,11 +551,13 @@ const dayOptions = (sel) => Array.from({ length: 31 }, (_, i) => `<option value=
 function financeStats() {
   const y = finMonth.getFullYear(), m = finMonth.getMonth();
   const prefix = `${y}-${pad2(m + 1)}`;
-  const spent = state.finance.expenses.filter(e => (e.date || '').startsWith(prefix))
-    .reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
+  let income = 0, spent = 0;
+  state.finance.expenses.filter(e => (e.date || '').startsWith(prefix)).forEach(e => {
+    if (isIncome(e)) income += amtOf(e); else spent += amtOf(e);
+  });
   let planned = 0;
   for (let d = 1; d <= daysInMonth(y, m); d++) planned += plannedSum(`${prefix}-${pad2(d)}`);
-  return { spent, planned };
+  return { income, spent, planned, balance: income - spent };
 }
 
 function financeCalendar() {
@@ -534,11 +567,12 @@ function financeCalendar() {
   const cells = monthCells(y, m).map(d => {
     if (!d) return '<span></span>';
     const ds = isoOf(d);
-    const sp = spentOn(ds), pl = plannedSum(ds);
+    const sp = spentOn(ds), inc = incomeOn(ds), pl = plannedSum(ds);
     const cls = ['fcal-day', ds === tISO ? 'today' : '', ds === finSel ? 'sel' : ''].join(' ');
     return `<button class="${cls}" data-act="fin-day" data-date="${ds}">
       <span class="dn">${d.getDate()}</span>
-      ${sp ? `<span class="sp">${won(sp)}</span>` : ''}
+      ${inc ? `<span class="inc">+${won(inc)}</span>` : ''}
+      ${sp ? `<span class="sp">-${won(sp)}</span>` : ''}
       ${pl ? `<span class="pl">+${won(pl)}</span>` : ''}
     </button>`;
   }).join('');
@@ -547,18 +581,21 @@ function financeCalendar() {
 
 function finDayPanel() {
   const ds = finSel || todayISO();
-  const exps = expensesOn(ds).sort((a, b) => (a.id > b.id ? 1 : -1));
+  const entries = entriesOn(ds).sort((a, b) => (a.id > b.id ? 1 : -1));
   const plans = plannedOn(ds);
-  const total = spentOn(ds);
+  const inc = incomeOn(ds), spent = spentOn(ds);
+  const head = [`수입 ₩${won(inc)}`, `지출 ₩${won(spent)}`];
+  if (plans.length) head.push(`예정 ₩${won(plannedSum(ds))}`);
   return `<div class="sec-card">
     <div class="sec-head" style="margin:0">
       <h3><span class="em">🧾</span>${fmtDateKo(ds)}</h3>
-      <span class="sec-note">지출 ₩${won(total)}${plans.length ? ` · 예정 ₩${won(plannedSum(ds))}` : ''}</span>
+      <span class="sec-note">${head.join(' · ')}</span>
     </div>
-    ${exps.length ? `<div class="row-list">${exps.map(e => `
+    ${entries.length ? `<div class="row-list">${entries.map(e => `
       <div class="drow">
+        ${isIncome(e) ? '<span class="tag income">수입</span>' : ''}
         <span class="grow">${esc(e.title)} <span class="muted">${esc(e.cat || '기타')}${e.memo ? ' · ' + esc(e.memo) : ''}</span></span>
-        <span class="dday-pill">₩${won(e.amount)}</span>
+        <span class="dday-pill ${isIncome(e) ? 'in' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
         <button class="icon-x" data-act="exp-del" data-id="${e.id}">✕</button>
       </div>`).join('')}</div>` : '<div class="empty">이 날 쓴 내역이 없어요</div>'}
     ${plans.length ? `<div class="row-list">${plans.map(p => `
@@ -566,15 +603,7 @@ function finDayPanel() {
         <span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span>
         <span class="dday-pill">＋₩${won(p.amount)}</span>
       </div>`).join('')}</div>` : ''}
-    <form class="add-form" data-form="expense" data-date="${ds}">
-      <input class="in grow" name="title" placeholder="내역 (예: 점심 김밥)" maxlength="50" required>
-      <input class="in num" name="amount" inputmode="numeric" placeholder="금액" required>
-      <select class="in" name="cat">
-        <option>식비</option><option>카페</option><option>교통</option><option>쇼핑</option>
-        <option>생활</option><option>병원·약</option><option>공부</option><option>기타</option>
-      </select>
-      <button class="btn primary" type="submit">추가</button>
-    </form>
+    ${moneyFormHtml(ds)}
   </div>`;
 }
 
@@ -586,11 +615,13 @@ function renderFinanceModal() {
   const monthlySubs = subs.filter(s => s.active && s.cycle !== 'yearly').reduce((a, s) => a + (Number(s.amount) || 0), 0);
   const yearlySubs = subs.filter(s => s.active && s.cycle === 'yearly').reduce((a, s) => a + (Number(s.amount) || 0), 0);
   return `
-    <div class="stat-row">
-      <div class="stat spend"><div class="k">이번 달 총 지출</div><div class="v">₩${won(st.spent)}</div></div>
-      <div class="stat plan"><div class="k">앞으로 나갈 예정</div><div class="v">₩${won(st.planned)}</div></div>
-      <div class="stat"><div class="k">활성 구독 · 매달</div><div class="v">₩${won(monthlySubs)}<small> /월</small></div>${yearlySubs ? `<div class="stat-sub">＋ 연 ₩${won(yearlySubs)}</div>` : ''}</div>
+    <div class="stat-row money">
+      <div class="stat income"><div class="k">이번 달 수입</div><div class="v">＋₩${won(st.income)}</div></div>
+      <div class="stat spend"><div class="k">이번 달 지출</div><div class="v">−₩${won(st.spent)}</div></div>
+      <div class="stat plan"><div class="k">예정 지출</div><div class="v">₩${won(st.planned)}</div></div>
+      <div class="stat balance ${st.balance < 0 ? 'neg' : ''}"><div class="k">수입 - 지출</div><div class="v">${st.balance < 0 ? '−' : ''}₩${won(Math.abs(st.balance))}</div></div>
     </div>
+    <div class="fin-subs-line">🔁 활성 구독 ₩${won(monthlySubs)}<small> /월</small>${yearlySubs ? ` · 연 ₩${won(yearlySubs)}` : ''}</div>
 
     <section class="sec">
       <div class="sec-head">
@@ -603,7 +634,7 @@ function renderFinanceModal() {
       </div>
       <div class="sec-card">
         <div class="cal-title" style="font-size:13px;color:#8ba3b5;font-family:var(--font-num);margin-bottom:2px">
-          ${finMonth.getFullYear()}년 ${finMonth.getMonth() + 1}월 · ${themeOf(state) === 'xmas' ? '빨간 숫자=지출, 금색=예정' : '파란 숫자=지출, 주황=예정'}
+          ${finMonth.getFullYear()}년 ${finMonth.getMonth() + 1}월 · ${themeOf(state) === 'xmas' ? '빨간=지출, 초록=수입, 금색=예정' : '파란=지출, 초록=수입, 주황=예정'}
         </div>
         ${financeCalendar()}
       </div>
@@ -819,7 +850,7 @@ function renderDayModal(dateStr) {
   const ds = dateStr;
   const exms = examsOn(ds);
   const evs = eventsOn(ds);
-  const exps = expensesOn(ds);
+  const exps = entriesOn(ds);
   const plans = plannedOn(ds);
   return `
     <section class="sec">
@@ -841,11 +872,12 @@ function renderDayModal(dateStr) {
     </section>
 
     <section class="sec">
-      <div class="sec-head"><h3><span class="em">🪙</span>지출</h3><span class="sec-count">₩${won(spentOn(ds))}</span></div>
+      <div class="sec-head"><h3><span class="em">🪙</span>수입 · 지출</h3><span class="sec-count">수입 ₩${won(incomeOn(ds))} · 지출 ₩${won(spentOn(ds))}</span></div>
       ${exps.length ? `<div class="row-list">${exps.map(e => `
         <div class="drow">
+          ${isIncome(e) ? '<span class="tag income">수입</span>' : ''}
           <span class="grow">${esc(e.title)} <span class="muted">${esc(e.cat || '기타')}${e.memo ? ' · ' + esc(e.memo) : ''}</span></span>
-          <span class="dday-pill">₩${won(e.amount)}</span>
+          <span class="dday-pill ${isIncome(e) ? 'in' : 'out'}">${isIncome(e) ? '＋' : '−'}₩${won(amtOf(e))}</span>
           <button class="icon-x" data-act="exp-del" data-id="${e.id}">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">아직 기록이 없어요</div>'}
       ${plans.length ? `<div class="row-list">${plans.map(p => `
@@ -853,15 +885,7 @@ function renderDayModal(dateStr) {
           <span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span>
           <span class="dday-pill">＋₩${won(p.amount)}</span>
         </div>`).join('')}</div>` : ''}
-      <form class="add-form" data-form="expense" data-date="${ds}">
-        <input class="in grow" name="title" placeholder="내역" maxlength="50" required>
-        <input class="in num" name="amount" inputmode="numeric" placeholder="금액" required>
-        <select class="in" name="cat">
-          <option>식비</option><option>카페</option><option>교통</option><option>쇼핑</option>
-          <option>생활</option><option>병원·약</option><option>공부</option><option>기타</option>
-        </select>
-        <button class="btn primary" type="submit">추가</button>
-      </form>
+      ${moneyFormHtml(ds)}
     </section>`;
 }
 
@@ -1204,7 +1228,11 @@ const FORMS = {
   expense(form) {
     const title = fv(form, 'title'); const amount = clampNum(fv(form, 'amount'));
     if (!title || !amount) return toast('내역과 금액을 채워주세요');
-    state.finance.expenses.push({ id: uid(), date: form.dataset.date, title, amount, cat: fv(form, 'cat') || '기타', memo: '' });
+    const type = fv(form, 'type') === 'income' ? 'income' : 'expense';
+    const cats = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
+    let cat = fv(form, 'cat');
+    if (!cats.includes(cat)) cat = '기타';
+    state.finance.expenses.push({ id: uid(), date: form.dataset.date, title, amount: Math.abs(amount), cat, type, memo: '' });
     commit();
   },
   fgoal(form) {
@@ -1279,6 +1307,18 @@ document.addEventListener('change', ev => {
   if (form) form.classList.toggle('yearly', sel.value === 'yearly');
 });
 
+/* 내역 종류(지출/수입) → 알맞은 카테고리 목록으로 바꾸기 */
+document.addEventListener('change', ev => {
+  const sel = ev.target.closest('[data-form="expense"] select[name="type"]');
+  if (!sel) return;
+  const form = sel.closest('[data-form="expense"]');
+  const catSel = form && form.querySelector('select[name="cat"]');
+  if (!catSel) return;
+  const income = sel.value === 'income';
+  catSel.innerHTML = catOptionHtml(income ? INCOME_CATS : EXPENSE_CATS);
+  form.classList.toggle('is-income', income);
+});
+
 /* ───────────── click actions ───────────── */
 document.addEventListener('click', async ev => {
   const t = ev.target.closest('[data-act]');
@@ -1328,7 +1368,7 @@ document.addEventListener('click', async ev => {
         fields: [
           { key: 'name', label: '이름', value: x.name },
           { key: 'date', label: '날짜', type: 'date', value: x.date },
-          { key: 'type', label: '구분', type: 'select', options: ['시험', '지원', '면접'], value: x.type },
+          { key: 'type', label: '구분', type: 'select', options: EXAM_TYPES, value: x.type },
           { key: 'memo', label: '메모', value: x.memo || '' },
         ],
         confirmText: '저장',
@@ -1467,7 +1507,7 @@ document.addEventListener('click', async ev => {
       const amount = clampNum(r.amount) || Number(n.price) || 0;
       n.status = '완료'; n.boughtDate = r.date; n.boughtAmount = amount;
       state.finance.planned = state.finance.planned.filter(p => p.needId !== n.id);
-      state.finance.expenses.push({ id: uid(), date: r.date, title: n.name, amount, cat: '쇼핑', memo: 'Wishlist 구매' });
+      state.finance.expenses.push({ id: uid(), date: r.date, title: n.name, amount, cat: '쇼핑', type: 'expense', memo: 'Wishlist 구매' });
       commit(); toast('구매 완료 · 가계부에 지출로 기록했어요');
       break;
     }
@@ -1809,7 +1849,8 @@ function boot() {
 window.__GD = {
   get state() { return state; },
   seal, unseal, rowIdFor, cloudPush, cloudPull, applyRemote, startSync,
-  plannedOn, subCycleLabel, normalize,
+  plannedOn, subCycleLabel, normalize, financeStats, spentOn, incomeOn, entriesOn,
+  EXPENSE_CATS, INCOME_CATS,
 };
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

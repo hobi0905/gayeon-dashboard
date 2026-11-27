@@ -41,6 +41,7 @@ const click = el => { el.dispatchEvent(new w.MouseEvent('click', { bubbles: true
 const submit = form => form.dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
 const tick = () => new Promise(r => setTimeout(r, 0));
 const fld = (form, name) => form.querySelector(`[name="${name}"]`);
+const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
 
 (async () => {
   dom = await makeDom();
@@ -109,6 +110,30 @@ const fld = (form, name) => form.querySelector(`[name="${name}"]`);
   submit(examForm);
   await tick();
   ok($('#ddayCard').textContent.includes('테스트 면접'), 'STUDY 시험 추가 → 홈 D-DAY 자동 반영', $('#ddayCard').textContent.replace(/\s+/g, ' ').slice(0, 80));
+
+  console.log('▸ STUDY 구분 · 발표');
+  const examForm2 = $('#modalBody [data-form="exam"]');
+  const examTypes = Array.from(fld(examForm2, 'type').querySelectorAll('option')).map(o => o.textContent.trim());
+  ok(examTypes.join(',') === '시험,지원,면접,발표', '구분 목록에 발표 추가', examTypes.join(','));
+  fld(examForm2, 'name').value = '테스트 합격자 발표';
+  fld(examForm2, 'date').value = '2026-12-05';
+  fld(examForm2, 'type').value = '발표';
+  fld(examForm2, 'memo').value = '오후 발표';
+  submit(examForm2);
+  await tick();
+  ok($('#modalBody').textContent.includes('테스트 합격자 발표'), '발표 일정 추가');
+  const examRow = $$('#modalBody .drow').find(r => r.textContent.includes('테스트 합격자 발표'));
+  ok(!!examRow && !!examRow.querySelector('.tag.발표'), 'STUDY 목록에 발표 태그', examRow && examRow.textContent);
+  ok($('#ddayCard').textContent.includes('테스트 합격자 발표'), 'D-DAY 다음 일정에 발표 반영', $('#ddayCard').textContent.replace(/\s+/g, ' '));
+  const examEditBtn = examRow && examRow.querySelector('[data-act="exam-edit"]');
+  click(examEditBtn);
+  await tick();
+  const editPrompt = doc.querySelector('.prompt');
+  const editTypes = editPrompt ? Array.from(editPrompt.querySelectorAll('[name="type"] option')).map(o => o.textContent.trim()) : [];
+  ok(editTypes.includes('발표'), '수정 창에도 발표 선택', editTypes.join(','));
+  ok(!!editPrompt && fld(editPrompt, 'type').value === '발표', '수정 창이 현재 구분(발표)을 보여줌');
+  if (editPrompt) click(editPrompt.querySelector('[data-x="cancel"]'));
+  await tick();
 
   console.log('▸ 캘린더 연동');
   click($('.modal-close, [data-act="modal-close"]'));
@@ -204,6 +229,57 @@ const fld = (form, name) => form.querySelector(`[name="${name}"]`);
   const fcell01 = $$('.fcal-day').find(c => c.dataset.date === '2026-12-01');
   ok(fcell01.textContent.includes('8,500'), '가계부 캘린더 지출 합계 표시', fcell01.textContent);
 
+  console.log('▸ 가계부 수입');
+  const moneyForm = () => $('#modalBody [data-form="expense"]');
+  const catOpts = () => Array.from(fld(moneyForm(), 'cat').querySelectorAll('option')).map(o => o.textContent.trim());
+  ok(!!fld(moneyForm(), 'type'), '내역 추가에 지출/수입 선택');
+  ok(catOpts().includes('여가'), '지출 카테고리에 여가', catOpts().join(','));
+  ok(fld(moneyForm(), 'type').value === 'expense', '기본 종류는 지출');
+
+  const typeSel = fld(moneyForm(), 'type');
+  typeSel.value = 'income';
+  typeSel.dispatchEvent(new w.Event('change', { bubbles: true }));
+  ok(catOpts().includes('알바·급여') && !catOpts().includes('여가'), '수입 선택 시 수입 카테고리로 교체', catOpts().join(','));
+  ok(moneyForm().classList.contains('is-income'), '수입 모드 표시');
+
+  const incForm = moneyForm();
+  fld(incForm, 'title').value = '테스트 월급';
+  fld(incForm, 'amount').value = '620000';
+  submit(incForm);
+  const incEntry = w.__GD.state.finance.expenses.find(e => e.title === '테스트 월급');
+  ok(!!incEntry && incEntry.type === 'income' && incEntry.amount === 620000, '수입 내역 저장', incEntry && JSON.stringify(incEntry));
+  ok(!!incEntry && incEntry.cat === '알바·급여', '수입 카테고리 저장', incEntry && incEntry.cat);
+
+  const statRow = $('#modalBody .stat-row');
+  const statText = statRow.textContent.replace(/\s+/g, ' ');
+  ok(statText.includes('이번 달 수입') && statText.includes('이번 달 지출') && statText.includes('예정 지출') && statText.includes('수입 - 지출'), '요약 4칸(수입·지출·예정·잔액)', statText);
+  const fstats = w.__GD.financeStats();
+  ok(fstats.income === 620000 && fstats.spent === 8500, '이번 달 수입·지출 합계', JSON.stringify(fstats));
+  ok(fstats.balance === fstats.income - fstats.spent, '잔액 = 수입 - 지출', fstats.balance);
+  ok(statRow.querySelector('.stat.income .v').textContent.includes('620,000'), '요약에 이번 달 수입 표시');
+  ok(statRow.querySelector('.stat.balance .v').textContent.includes(wonNum(fstats.balance)), '요약에 잔액 표시', statRow.querySelector('.stat.balance .v').textContent);
+  ok($('#modalBody').textContent.includes('＋₩620,000'), '날짜 목록에 수입 +₩ 표시');
+
+  const fcellInc = $$('.fcal-day').find(c => c.dataset.date === '2026-12-01');
+  ok(!!fcellInc.querySelector('.inc') && fcellInc.querySelector('.inc').textContent.includes('620,000'), '가계부 캘린더에 수입 표시', fcellInc.textContent);
+  ok(!!fcellInc.querySelector('.sp') && fcellInc.querySelector('.sp').textContent.includes('8,500'), '가계부 캘린더에 지출 -표시', fcellInc.textContent);
+
+  console.log('▸ 메인 캘린더 수입·지출 구분');
+  click($('[data-act="modal-close"]'));
+  click($('[data-act="cal-next"]'));
+  const mainDec1 = $$('.cal-cell').find(c => c.dataset.date === '2026-12-01');
+  ok(!!mainDec1.querySelector('.cal-income') && mainDec1.querySelector('.cal-income').textContent.includes('620,000'), '메인 캘린더 수입 +₩ 표시', mainDec1.textContent);
+  ok(!!mainDec1.querySelector('.cal-spend') && mainDec1.querySelector('.cal-spend').textContent.includes('8,500'), '메인 캘린더 지출 −₩ 표시', mainDec1.textContent);
+  const mainDec5 = $$('.cal-cell').find(c => c.dataset.date === '2026-12-05');
+  ok(!!mainDec5 && mainDec5.textContent.includes('테스트 합격자 발표'), '메인 캘린더에 발표 일정 표시', mainDec5 && mainDec5.textContent);
+  click($('[data-act="cal-prev"]'));
+
+  console.log('▸ 예전 지출 데이터 호환');
+  const legacy = w.__GD.normalize({ v: 3, finance: { expenses: [{ id: 'old1', date: '2026-12-03', title: '영화', amount: 50000, cat: '기타' }] } });
+  ok(legacy.finance.expenses.length === 1 && legacy.finance.expenses[0].type === 'expense', 'type 없는 예전 내역은 지출로 호환');
+  ok(legacy.finance.expenses[0].amount === 50000 && legacy.finance.expenses[0].title === '영화', '예전 금액·이름 그대로 유지');
+  ok(w.__GD.EXPENSE_CATS.includes('여가') && w.__GD.INCOME_CATS.includes('알바·급여'), '카테고리 목록 노출');
+
   console.log('▸ 메모');
   click($('[data-act="modal-close"]'));
   click($('[data-act="open-memo"]'));
@@ -263,6 +339,24 @@ const fld = (form, name) => form.querySelector(`[name="${name}"]`);
   fld(evForm, 'category').value = 'personal';
   submit(evForm);
   ok($('#modalBody').textContent.includes('테스트 일정'), '일정 추가');
+
+  console.log('▸ 날짜 상세 모달 수입·여가');
+  const dayMoney = $('#modalBody [data-form="expense"]');
+  const dayCats = Array.from(fld(dayMoney, 'cat').querySelectorAll('option')).map(o => o.textContent.trim());
+  ok(dayCats.includes('여가'), '날짜 상세 모달 지출 카테고리에 여가', dayCats.join(','));
+  ok(!!fld(dayMoney, 'type'), '날짜 상세 모달 지출/수입 선택');
+  fld(dayMoney, 'title').value = '테스트 영화';
+  fld(dayMoney, 'amount').value = '15000';
+  fld(dayMoney, 'cat').value = '여가';
+  submit(dayMoney);
+  ok($('#modalBody').textContent.includes('테스트 영화'), '여가 지출 추가');
+  const movieEntry = w.__GD.state.finance.expenses.find(e => e.title === '테스트 영화');
+  ok(!!movieEntry && movieEntry.cat === '여가' && movieEntry.type === 'expense' && movieEntry.amount === 15000, '여가 카테고리 저장', movieEntry && JSON.stringify(movieEntry));
+  const dayTypeSel = fld($('#modalBody [data-form="expense"]'), 'type');
+  dayTypeSel.value = 'income';
+  dayTypeSel.dispatchEvent(new w.Event('change', { bubbles: true }));
+  const dayIncCats = Array.from(fld($('#modalBody [data-form="expense"]'), 'cat').querySelectorAll('option')).map(o => o.textContent.trim());
+  ok(dayIncCats.includes('용돈') && !dayIncCats.includes('여가'), '날짜 상세에서도 수입 카테고리로 교체', dayIncCats.join(','));
 
   console.log(results.join('\n'));
   console.log(`\n결과: ${pass} 통과 / ${fail} 실패`);

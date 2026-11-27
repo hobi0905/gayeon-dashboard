@@ -381,6 +381,7 @@ ul{list-style:none;margin:0;padding:0;}
 .chip.work{background:#eeebf9;border-left-color:#d6ccef;}
 .cal-money{margin-top:auto;display:flex;flex-direction:column;gap:1px;}
 .cal-spend{font-size:9.5px;font-family:var(--font-num);font-weight:600;color:#5f93b8;}
+.cal-income{font-size:9.5px;font-family:var(--font-num);font-weight:600;color:#3f8f63;}
 .cal-plan{font-size:9.5px;font-family:var(--font-num);color:#b8925e;}
 .cal-more{font-size:9px;color:#b8c8d4;}
 
@@ -389,6 +390,7 @@ ul{list-style:none;margin:0;padding:0;}
 .dotc.study{background:#d8e9fa;} .dotc.personal{background:#fbe6ee;} .dotc.health{background:#e4f2e7;}
 .dotc.trip{background:#fdf0d8;} .dotc.work{background:#e9e5f8;}
 .dotc.spend{background:#cfe3f4;} .dotc.plan{background:repeating-linear-gradient(45deg,#f3e5cc,#f3e5cc 2px,#fdf7ec 2px,#fdf7ec 4px);}
+.dotc.income{background:#d3efdf;}
 .legend-money{margin-left:auto;}
 
 .site-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:26px;padding-top:14px;border-top:1px solid var(--line-soft);font-size:11px;color:#b1c0cc;flex-wrap:wrap;}
@@ -500,11 +502,17 @@ select.in{background:#fff;}
 .tag.시험{background:#e0eefb;color:#5a86a8;}
 .tag.지원{background:#eee9f9;color:#8272a8;}
 .tag.면접{background:#fbe6ee;color:#b47b91;}
+.tag.발표{background:#fdf3e2;color:#ad8344;}
 .tag.done{background:#e8f5ec;color:#6f9b7f;}
+.tag.income{background:#e6f6ec;color:#47875f;}
 .tag.soon{background:#fdf3e2;color:#b18b53;}
 .dday-pill{font-family:var(--font-num);font-size:12.5px;font-weight:600;color:#6f9dc2;background:#f2f9ff;border-radius:8px;padding:2px 8px;white-space:nowrap;}
 .dday-pill small{font-size:10.5px;font-weight:500;color:#9db4c5;}
 .dday-pill.past{color:#b3c0cb;background:#f7fafc;}
+.dday-pill.in{background:#eaf8f0;color:#3f8f63;}
+.money-type{width:86px;}
+.money-cat{width:108px;}
+.money-form.is-income .btn.primary{background:#e2f5e9;border-color:#bfe5cd;color:#3d7a57;}
 
 .empty{
   font-size:13.5px;color:#b3c2ce;text-align:center;padding:16px 8px;
@@ -520,6 +528,11 @@ select.in{background:#fff;}
 .stat-sub{font-size:11.5px;color:#a2917d;margin-top:1px;font-family:var(--font-num);}
 .stat.spend .v{color:#4d7fa3;}
 .stat.plan .v{color:#a9865a;}
+.stat.income .v{color:#3f8f63;}
+.stat.balance .v{color:#416e8c;}
+.stat.balance.neg .v{color:#b4585f;}
+.stat-row.money{grid-template-columns:repeat(4,minmax(0,1fr));}
+.fin-subs-line{font-size:11.5px;color:#9fb0bd;font-family:var(--font-num);margin-top:-12px;}
 
 /* mini finance calendar */
 .fcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;}
@@ -533,6 +546,7 @@ select.in{background:#fff;}
 .fcal-day.today{border-color:#a9cee9;background:#f2f9ff;}
 .fcal-day.sel{border-color:#8fb9d9;background:#eaf5fe;box-shadow:0 0 0 1px #cbe4f7 inset;}
 .fcal-day .sp{font-family:var(--font-num);color:#568cb0;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fcal-day .inc{font-family:var(--font-num);color:#3f8f63;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .fcal-day .pl{font-family:var(--font-num);color:#b08a55;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 /* goal cards */
@@ -661,6 +675,9 @@ a{color:#6f9dc2;}
   .modal-body{padding:14px 16px 24px;}
   .stat-row{grid-template-columns:1fr 1fr;}
   .stat-row .stat:last-child{grid-column:1 / -1;}
+  .stat-row.money{grid-template-columns:1fr 1fr;}
+  .stat-row.money .stat:last-child{grid-column:auto;}
+  .money-form .money-type,.money-form .money-cat{flex:1 1 28%;width:auto;min-width:82px;}
   .cal-cell{min-height:62px;padding:4px 3px;}
   .chip{font-size:8.5px;}
   .legend-money{margin-left:0;}
@@ -893,12 +910,14 @@ body[data-theme="xmas"] .chip.health{background:#e8f1e2;border-left-color:#a9c9a
 body[data-theme="xmas"] .chip.trip{background:#faeed3;border-left-color:#dcbb7c;color:#7a5a24;}
 body[data-theme="xmas"] .chip.work{background:#f0e6da;border-left-color:#c5a98b;color:#6b5138;}
 body[data-theme="xmas"] .cal-spend{color:#a9373f;}
+body[data-theme="xmas"] .cal-income{color:#3f7a55;}
 body[data-theme="xmas"] .cal-plan{color:#a97f3e;}
 body[data-theme="xmas"] .cal-more{color:#c3b198;}
 body[data-theme="xmas"] .cal-legend{color:#a2917d;}
 body[data-theme="xmas"] .dotc.study{background:#dfe9d8;} body[data-theme="xmas"] .dotc.personal{background:#f6ddd7;}
 body[data-theme="xmas"] .dotc.health{background:#e2efdb;} body[data-theme="xmas"] .dotc.trip{background:#f7e8c9;}
 body[data-theme="xmas"] .dotc.work{background:#eddfd0;} body[data-theme="xmas"] .dotc.spend{background:#e3b9b5;}
+body[data-theme="xmas"] .dotc.income{background:#bcdcc6;}
 body[data-theme="xmas"] .dotc.plan{background:repeating-linear-gradient(45deg,#dcc09a,#dcc09a 2px,#faf1e1 2px,#faf1e1 4px);}
 
 /* footer / badge */
@@ -947,10 +966,13 @@ body[data-theme="xmas"] .tag{background:#f5ecdc;color:#8a7458;}
 body[data-theme="xmas"] .tag.시험{background:#e2eee2;color:#3f6b4d;}
 body[data-theme="xmas"] .tag.지원{background:#efe8dd;color:#7a6448;}
 body[data-theme="xmas"] .tag.면접{background:#f8e2dd;color:#a05a52;}
+body[data-theme="xmas"] .tag.발표{background:#faeed3;color:#9a7434;}
 body[data-theme="xmas"] .tag.done{background:#e8f1e3;color:#4f7a58;}
 body[data-theme="xmas"] .tag.soon{background:#faeed3;color:#9a7434;}
 body[data-theme="xmas"] .dday-pill{background:#f7eedf;color:#a97f3e;}
 body[data-theme="xmas"] .dday-pill.past{background:#faf5ec;color:#b8a790;}
+body[data-theme="xmas"] .dday-pill.in{background:#eaf4ec;color:#2f6b48;}
+body[data-theme="xmas"] .tag.income{background:#e5f1e5;color:#3f6b4d;}
 body[data-theme="xmas"] .empty{background:#fffbf3;border-color:#f0e3d1;color:#b8a58d;}
 body[data-theme="xmas"] .stat{background:linear-gradient(160deg,#fffbf3,#fffdf8);border-color:#f1e5d3;}
 body[data-theme="xmas"] .stat .k{color:#ac9a85;}
@@ -958,6 +980,11 @@ body[data-theme="xmas"] .stat .v{color:#3f6b4d;}
 body[data-theme="xmas"] .stat .v small{color:#a2917d;}
 body[data-theme="xmas"] .stat.spend .v{color:#a9373f;}
 body[data-theme="xmas"] .stat.plan .v{color:#a97f3e;}
+body[data-theme="xmas"] .stat.income .v{color:#2c6049;}
+body[data-theme="xmas"] .stat.balance .v{color:#2f5040;}
+body[data-theme="xmas"] .stat.balance.neg .v{color:#a9373f;}
+body[data-theme="xmas"] .fin-subs-line{color:#a2917d;}
+body[data-theme="xmas"] .money-form.is-income .btn.primary{background:#2c6049;border-color:#2c6049;color:#fbf3e3;}
 body[data-theme="xmas"] .stat-sub{color:#a97f3e;}
 body[data-theme="xmas"] .fcal .wd{color:#ab9a84;}
 body[data-theme="xmas"] .fcal-day{background:#fffbf3;border-color:#f2e7d6;}
@@ -966,6 +993,7 @@ body[data-theme="xmas"] .fcal-day.today{border-color:#c9a45c;background:#fdf6e8;
 body[data-theme="xmas"] .fcal-day.sel{border-color:#2c6049;background:#f7eedf;box-shadow:0 0 0 1px #dcc29c inset;}
 body[data-theme="xmas"] .fcal-day .dn{color:#6a5c49;}
 body[data-theme="xmas"] .fcal-day .sp{color:#a9373f;}
+body[data-theme="xmas"] .fcal-day .inc{color:#2f6b48;}
 body[data-theme="xmas"] .fcal-day .pl{color:#a97f3e;}
 body[data-theme="xmas"] .goal-card{background:#fffdf8;border-color:#f2e7d6;}
 body[data-theme="xmas"] .goal-name{color:#3f5b45;}
