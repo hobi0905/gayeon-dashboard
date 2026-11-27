@@ -57,7 +57,7 @@
 npm install
 
 # 테스트
-npm test        # tests/smoke.test.js  (DOM 동작 41개)
+npm test        # tests/smoke.test.js  (DOM 동작 72개)
                 # tests/sync.test.js   (암호화 9개)
 ```
 
