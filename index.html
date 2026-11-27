@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=24">
+<link rel="stylesheet" href="styles.css?v=25">
 </head>
 <body data-theme="xmas">
 <div class="app" id="app">
@@ -84,7 +84,8 @@
       <div class="main-col">
         <div class="top-row">
           <section class="card clock-card">
-            <div class="flip-row">
+            <div class="flip-row" aria-label="현재 시각">
+              <span class="flip-ampm" id="flipAmpm" data-v="AM">AM</span>
               <div class="flip" id="flipHour" data-v="00">00</div>
               <span class="colon">:</span>
               <div class="flip" id="flipMin" data-v="00">00</div>
@@ -160,6 +161,6 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="app.js?v=17" defer></script>
+<script src="app.js?v=18" defer></script>
 </body>
 </html>

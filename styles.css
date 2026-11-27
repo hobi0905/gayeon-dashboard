@@ -302,6 +302,13 @@ ul{list-style:none;margin:0;padding:0;}
 .clock-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
   background:linear-gradient(180deg,#fbfdff,#f4faff);}
 .flip-row{display:flex;align-items:center;gap:6px;}
+/* 시(Hour) 왼편의 작은 AM/PM 표시 — 폭을 고정해 AM↔PM 전환 때 시계가 흔들리지 않게 */
+.flip-ampm{
+  font-family:var(--font-num);font-weight:700;font-size:12px;line-height:1;
+  letter-spacing:.07em;color:#6f9dc2;text-align:right;
+  min-width:1.85em;padding-right:3px;align-self:center;
+  user-select:none;
+}
 .flip{
   font-family:var(--font-num);font-weight:600;
   font-size:var(--hero-clock-num);line-height:1;
@@ -1023,6 +1030,7 @@ body[data-theme="xmas"] .flip{
   box-shadow:inset 0 -8px 14px rgba(0,0,0,.18), 0 3px 10px rgba(20,40,30,.2);
 }
 body[data-theme="xmas"] .flip::after{background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,235,200,.28),rgba(255,255,255,0));}
+body[data-theme="xmas"] .flip-ampm{color:#e8c98a;}
 body[data-theme="xmas"] .colon{color:#e8c98a;}
 body[data-theme="xmas"] .clock-sub{color:#d9cbb4;border-top-color:rgba(255,255,255,.18);}
 body[data-theme="xmas"] .clock-sec{color:#eccd8d;}

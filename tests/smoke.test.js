@@ -439,6 +439,27 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.tt-ico\{[^}]*width:var\(--icon-box\)[^}]*height:var\(--icon-box\)/.test(css), '테마 아이콘 공통 박스 20px');
   ok(!/body\[data-theme="xmas"\][^{]*(wx-emoji|\.flip|\.cat-photo|\.tt-ico)[^{]*\{[^}]*font-size/.test(css), '테마별 아이콘 크기 차이 없음');
 
+  console.log('▸ 플립 시계 — AM/PM · 12시간제');
+  ok(!!$('#flipAmpm'), 'AM/PM 요소 렌더');
+  const rowKids = Array.from($('.flip-row').children);
+  ok(rowKids[0].id === 'flipAmpm' && rowKids[1].id === 'flipHour', 'AM/PM이 시(Hour) 왼편에 배치', rowKids.map(k => k.id || k.className).join(','));
+  const cases = [[0, 'AM', '12'], [1, 'AM', '01'], [11, 'AM', '11'], [12, 'PM', '12'], [13, 'PM', '01'], [23, 'PM', '11']];
+  const bad = cases.filter(([h, ap, hh]) => { const p = w.__GD.clockParts(h); return p.ampm !== ap || p.hour !== hh; });
+  ok(bad.length === 0, '12시간제 변환 경계값 (0·1·11·12·13·23시)', bad.map(([h]) => `${h}시→${JSON.stringify(w.__GD.clockParts(h))}`).join(' '));
+  const nowD = new Date();
+  const nowP = w.__GD.clockParts(nowD.getHours());
+  ok($('#flipHour').textContent === nowP.hour, '현재 시각이 12시간제로 표시', `현재 ${nowD.getHours()}시 → ${$('#flipHour').textContent}`);
+  ok($('#flipAmpm').textContent === nowP.ampm, '현재 시각의 AM/PM 표시', $('#flipAmpm').textContent);
+  ok($('#flipMin').textContent === String(nowD.getMinutes()).padStart(2, '0'), '분 표시 유지', $('#flipMin').textContent);
+  const renderAt = h => { w.__GD.renderClock(new w.Date(2026, 0, 5, h, 7, 3)); return `${$('#flipAmpm').textContent} ${$('#flipHour').textContent}`; };
+  const domCases = [[0, 'AM 12'], [12, 'PM 12'], [13, 'PM 01'], [23, 'PM 11']];
+  const domBad = domCases.filter(([h, want]) => renderAt(h) !== want);
+  ok(domBad.length === 0, '시계 DOM이 00·12·13·23시에 맞게 표시', domBad.map(([h]) => `${h}시→${renderAt(h)}`).join(' '));
+  w.__GD.renderClock(new Date());
+  ok(/\.flip-ampm\{[^}]*font-size:12px/.test(css), 'AM/PM 작은 글씨 12px');
+  ok(/\.flip-ampm\{[^}]*min-width:/.test(css), 'AM/PM 폭 고정(AM↔PM 전환에도 안 밀림)');
+  ok(/body\[data-theme="xmas"\] \.flip-ampm\{[^}]*color:/.test(css), '크리스마스 테마 AM/PM 색상 지정');
+
   console.log('▸ 날짜 상세 모달');
   click($('[data-act="modal-close"]'));
   const c28 = $$('.cal-cell').find(c => c.dataset.date === '2026-11-28');
@@ -682,7 +703,7 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   ok(/\.habit-grid \.hn \.hx,\.habit-grid \.hn \.he\{[^}]*opacity:0/.test(css), '습관 수정·삭제 버튼 스타일');
   ok(/\.note-card \.ntag\{/.test(css), '메모 태그 스타일');
   const html2 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  ok(/styles\.css\?v=24/.test(html2) && /app\.js\?v=17/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
+  ok(/styles\.css\?v=25/.test(html2) && /app\.js\?v=18/.test(html2), '캐시 버스터 올림', (html2.match(/\?v=\d+/g) || []).join(','));
 
   console.log(results.join('\n'));
   console.log(`\n결과: ${pass} 통과 / ${fail} 실패`);

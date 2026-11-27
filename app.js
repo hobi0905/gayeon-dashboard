@@ -1916,12 +1916,33 @@ function setFlip(el, val) {
   el.dataset.v = val; el.textContent = val;
   el.classList.remove('flipping'); void el.offsetWidth; el.classList.add('flipping');
 }
-function tickClock() {
-  const d = new Date();
-  setFlip($('#flipHour'), pad2(d.getHours()));
-  setFlip($('#flipMin'), pad2(d.getMinutes()));
+function setAmpm(el, val) {
+  if (!el || el.dataset.v === val) return;
+  el.dataset.v = val; el.textContent = val;
+}
+/* 24시간 → 12시간제: 0→AM 12, 1~11→AM 01~11, 12→PM 12, 13~23→PM 01~11 */
+function hour12(h) {
+  const n = ((Number(h) % 12) + 12) % 12;
+  return n === 0 ? 12 : n;
+}
+const ampmOf = h => (Number(h) < 12 ? 'AM' : 'PM');
+function clockParts(h) {
+  const h12 = hour12(h);
+  return { h12, hour: pad2(h12), ampm: ampmOf(h) };
+}
+function renderClock(d) {
+  const p = clockParts(d.getHours());
+  const min = d.getMinutes();
+  setFlip($('#flipHour'), p.hour);
+  setAmpm($('#flipAmpm'), p.ampm);
+  setFlip($('#flipMin'), pad2(min));
   const s = $('#clockSec'); if (s) s.textContent = pad2(d.getSeconds());
   const w = $('#clockWeek'); if (w) w.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEK_KO[d.getDay()]}요일`;
+  const row = $('.flip-row');
+  if (row) row.setAttribute('aria-label', `${p.ampm === 'AM' ? '오전' : '오후'} ${p.h12}시 ${min}분`);
+}
+function tickClock() {
+  renderClock(new Date());
 }
 
 const WX = {
@@ -2297,6 +2318,7 @@ window.__GD = {
   seal, unseal, rowIdFor, cloudPush, cloudPull, applyRemote, startSync,
   plannedOn, subCycleLabel, normalize, financeStats, spentOn, incomeOn, entriesOn,
   EXPENSE_CATS, INCOME_CATS,
+  hour12, ampmOf, clockParts, renderClock,
 };
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
