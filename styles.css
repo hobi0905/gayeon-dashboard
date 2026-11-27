@@ -570,6 +570,10 @@ a{color:#6f9dc2;}
   .chip{font-size:8.5px;}
   .legend-money{margin-left:0;}
   .site-foot{justify-content:center;}
+  .nav-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .nav-btn{padding:11px 12px;font-size:14.5px;gap:8px;}
+  .deco-btn{display:none;}
+  .page-head-actions .ghost-btn{font-size:12px;padding:6px 11px;}
   .fcal-day{min-height:44px;}
 }
 
