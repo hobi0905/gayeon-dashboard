@@ -305,7 +305,7 @@ ul{list-style:none;margin:0;padding:0;}
 /* 시(Hour) 왼편의 작은 AM/PM 표시 — 폭을 고정해 AM↔PM 전환 때 시계가 흔들리지 않게 */
 .flip-ampm{
   font-family:var(--font-num);font-weight:700;font-size:12px;line-height:1;
-  letter-spacing:.07em;color:#6f9dc2;text-align:right;
+  letter-spacing:.07em;color:#58849f;text-align:right;
   min-width:1.85em;padding-right:3px;align-self:center;
   user-select:none;
 }
