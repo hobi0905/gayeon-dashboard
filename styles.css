@@ -818,8 +818,8 @@ a{color:#6f9dc2;}
   .chip{height:6px;font-size:0;line-height:0;padding:0;border-radius:3px;border-left:none;}
   .cal-more{font-size:9px;}
   .cal-spend,.cal-plan{font-size:10px;}
-  .drow{flex-wrap:wrap;row-gap:5px;}
-  .drow .grow{flex:1 1 auto;}
+  .drow{gap:8px;}
+  .drow .grow{flex:1 1 0;}
   .add-form > .btn{width:100%;}
 }
 
