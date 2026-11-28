@@ -1448,9 +1448,33 @@ function loanStatusOf(l, ym) {
   }
   return { key: 'defer', label: '거치 중', pill: 'plan', pct: 0, month: (c && c.interest) || 0, charge: c };
 }
+/* 원금상환 첫 달·마지막 달에 실제로 나가는 금액(원금+이자) — 카드에 '월 ₩60,000 → ₩50,167'로 보여준다
+   값은 저장하지 않고 회차의 원금·금리·개월수를 고칠 때마다 다음 그리기에서 다시 계산한다 */
+function loanPayRange(l) {
+  if (!l || !isYM(l.repayStart)) return null;
+  const first = loanChargeAt(l, l.repayStart);
+  if (!first || first.status !== 'repay' || first.months < 1) return null;
+  const end = loanRepayEnd(l);
+  const lastCharge = end ? loanChargeAt(l, end) : null;
+  const last = lastCharge && lastCharge.status === 'repay' ? lastCharge : first;
+  return {
+    first, last, end,
+    firstTotal: first.principal + first.interest,
+    lastTotal: last.principal + last.interest,
+    months: first.months,
+  };
+}
 function loanRoundHtml(l, thisYm, bankDefer) {
   const s = loanStatusOf(l, thisYm);
   const n = loanMonths(l);
+  const pay = loanPayRange(l);
+  const payRow = pay ? `<div class="loan-pay">
+        <dt>월 상환액${pay.months > 1 ? ' <span>첫 달 → 마지막 달</span>' : ''}</dt>
+        <dd>
+          <b>₩${won(pay.firstTotal)}</b>${pay.months > 1 ? `<i class="lp-arrow">→</i><b>₩${won(pay.lastTotal)}</b>` : ''}
+          <span class="lp-note">원금 ₩${won(pay.first.principal)} + 이자 · ${pay.months}개월</span>
+        </dd>
+      </div>` : '';
   return `<div class="loan-card" data-loan="${esc(l.id)}">
     <div class="loan-top">
       <b class="loan-round">${esc(l.round)}회차</b>
@@ -1467,6 +1491,7 @@ function loanRoundHtml(l, thisYm, bankDefer) {
       <div><dt>거치 종료</dt><dd>${fmtDot(l.deferEnd)}</dd></div>
       <div><dt>원금상환 시작</dt><dd>${fmtDot(l.repayStart)}</dd></div>
       <div><dt>만기(완납)</dt><dd>${fmtDot(loanRepayEnd(l))}</dd></div>
+      ${payRow}
     </dl>
     <div class="loan-bar">
       <div class="progress"><i style="width:${s.pct}%"></i></div>
@@ -2042,6 +2067,9 @@ const TE = new TextEncoder(), TD = new TextDecoder();
 
 let sbClient = null, sbChannel = null, pushTimer = null, applyingRemote = false;
 let lastSyncAt = 0, syncKind = '', syncMsg = '준비 중…', started = false;
+/* 점검·스크린샷용 미리보기 모드(?preview=1) — 클라우드는 읽기만 하고 절대 쓰지 않는다.
+   사용자 행(gayeon-dash-…)을 건드리지 않게 하려고, 새로 그린 화면을 살펴볼 때 주소에 붙여 쓴다. */
+const PREVIEW_ONLY = /[?&]preview=1\b/.test(location.search);
 
 const b64 = buf => btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
 const unb64 = s => { const bin = atob(s); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return arr; };
@@ -2108,6 +2136,7 @@ function renderSyncBadge() {
 }
 
 async function cloudPush() {
+  if (PREVIEW_ONLY) return;
   if (!state.sync || !state.sync.code) return;
   if (!cryptoOk()) { setSync('warn', '보안 연결(https)에서만 동기화돼요'); return; }
   const client = getClient();
@@ -3440,7 +3469,7 @@ window.__GD = {
   CATEGORY_COLORS, CATEGORY_PALETTE, LEGACY_EXPENSE_CAT,
   monthFlow, renderAll,
   loanRowsOn, loanChargeAt, loanMonthTotal, loanDateIn, loanRemaining, loanRemainingTotal,
-  loanTotalPrincipal, loanRepayEnd, loanStatusOf, debtSectionHtml, normalizeLoans,
+  loanTotalPrincipal, loanRepayEnd, loanStatusOf, loanPayRange, debtSectionHtml, normalizeLoans,
   EXPENSE_CATS, INCOME_CATS,
   hour12, ampmOf, clockParts, renderClock,
   openCalendarModal, renderCalendarModal, monthAgenda,
