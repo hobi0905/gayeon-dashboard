@@ -88,6 +88,30 @@ function ok(cond, name, extra) {
   ok(total('2037-02') === 0 && rowsOn('2037-02').length === 0, '완납 뒤(2037-02)는 0원', total('2037-02'));
   ok(total('2033-12') > 0 && !byRound('2033-12', 1), '1회차는 만기(2033-11) 뒤로 사라짐', total('2033-12'));
 
+  console.log('▸ 카드의 월 상환액 (첫 달 → 마지막 달)');
+  const payRows = loans().rounds.map(l => G.loanPayRange(l));
+  ok(payRows.every(p => p && p.first && p.last), '5건 모두 상환액 계산됨', payRows.map(p => p && p.firstTotal).join(','));
+  ok(payRows.map(p => p.firstTotal).join(',') === '60000,76191,15238,25906,19810', '첫 달 = 60,000·76,191·15,238·25,906·19,810', payRows.map(p => p.firstTotal).join(','));
+  ok(payRows.map(p => p.lastTotal).join(',') === '50167,59721,11944,20305,15528', '마지막 달 = 50,167·59,721·11,944·20,305·15,528', payRows.map(p => p.lastTotal).join(','));
+  ok(payRows.map(p => p.first.principal).join(',') === '50000,59524,11905,20239,15477', '월 원금 = 원금 ÷ 개월수(나머지는 앞 달부터)', payRows.map(p => p.first.principal).join(','));
+  ok(payRows.every((p, i) => p.end === G.loanRepayEnd(loans().rounds[i]) && p.months === loans().rounds[i].months), '마지막 달 = 만기 · 개월수 일치', payRows.map(p => p.end).join(','));
+  ok(payRows[0].firstTotal === byRound('2028-12', 1).amount, '1회차 첫 달 값 = 가계부 15일 납부액', `${payRows[0].firstTotal}/${byRound('2028-12', 1).amount}`);
+  ok(payRows[0].lastTotal === byRound('2033-11', 1).amount, '1회차 마지막 달 값 = 2033-11 납부액', `${payRows[0].lastTotal}/${byRound('2033-11', 1).amount}`);
+  /* 원금·개월수를 고치면 저장 없이 다음 그리기에서 바로 다시 계산 */
+  const r4 = loans().rounds[3];
+  const before4 = G.loanPayRange(r4);
+  r4.principal = 2000000;
+  const after4 = G.loanPayRange(r4);
+  ok(after4.firstTotal === 23810 + 6667, '원금 수정 → 월 상환액 재계산(200만 · 84개월 · 4% = 30,477)', `${before4.firstTotal} → ${after4.firstTotal}`);
+  r4.principal = 1700000;
+  ok(G.loanPayRange(r4).firstTotal === 25906, '되돌리면 25,906', G.loanPayRange(r4).firstTotal);
+  const r5 = loans().rounds[4];
+  r5.months = 60;
+  const p5 = G.loanPayRange(r5);
+  ok(p5.months === 60 && p5.firstTotal === 26000 && p5.end === '2035-01', '개월수 수정 → 60개월·2035.01 만기·첫 달 26,000', `${p5.months}/${p5.firstTotal}/${p5.end}`);
+  r5.months = 84;
+  ok(G.loanPayRange(r5).firstTotal === 19810 && G.loanPayRange(r5).end === '2037-01', '되돌리면 19,810 · 2037.01', G.loanPayRange(r5).firstTotal);
+
   console.log('▸ 원금균등분할 불변식');
   let sumBad = [];
   loans().rounds.forEach(l => {
@@ -160,6 +184,17 @@ function ok(cond, name, extra) {
   ok(inv.includes('첫 원금상환') && inv.includes('2028.12'), '첫 원금상환 2028.12', '');
   const cards = $$('#modalBody .loan-card[data-loan]');
   ok(cards.length === 5, '회차 카드 5개', cards.length);
+  const payLines = $$('#modalBody .loan-card .loan-pay');
+  const payTxt = payLines.map(calText);
+  ok(payLines.length === 5, '카드마다 월 상환액 줄 5개', payLines.length);
+  ok(/월 상환액/.test(payTxt[0]) && /첫 달 → 마지막 달/.test(payTxt[0]), '1회차 카드에 「월 상환액 · 첫 달 → 마지막 달」', payTxt[0]);
+  ok(payTxt[0].includes('₩60,000') && payTxt[0].includes('₩50,167'), '1회차 카드 월 60,000 → 50,167', payTxt[0]);
+  ok(payTxt[0].includes('원금 ₩50,000') && payTxt[0].includes('60개월'), '1회차 월 원금 50,000 · 60개월', payTxt[0]);
+  ok(payTxt[1].includes('₩76,191') && payTxt[1].includes('₩59,721'), '2회차 카드 월 76,191 → 59,721', payTxt[1]);
+  ok(payTxt[2].includes('₩15,238') && payTxt[2].includes('₩11,944'), '3회차 카드 월 15,238 → 11,944', payTxt[2]);
+  ok(payTxt[3].includes('₩25,906') && payTxt[3].includes('₩20,305'), '4회차 카드 월 25,906 → 20,305', payTxt[3]);
+  ok(payTxt[4].includes('₩19,810') && payTxt[4].includes('₩15,528'), '5회차 카드 월 19,810 → 15,528', payTxt[4]);
+  ok($$('#modalBody .loan-card .loan-meta').every(dl => dl.querySelector('.loan-pay')), '월 상환액이 날짜 표(대출일~만기) 안에 붙어 있음');
   const card1 = calText(cards[0]);
   ok(card1.includes('1회차') && card1.includes('₩3,000,000') && card1.includes('연 4.0%'), '1회차 원금·금리', card1.slice(0, 60));
   ok(card1.includes('2024.11.03'), '1회차 대출일 2024.11.03', card1.slice(0, 120));
@@ -184,6 +219,8 @@ function ok(cond, name, extra) {
   ok(loans().rounds[0].principal === 3600000, '원금 수정 저장', loans().rounds[0].principal);
   ok(total('2028-12') === 102000, '수정 후 2028-12 재계산 = 72,000(1회차) + 30,000', total('2028-12'));
   ok(calText($('#modalBody')).includes('₩3,600,000'), '카드에 수정된 원금', calText($('#modalBody')).slice(0, 80));
+  const editedPay = calText($('#modalBody .loan-card[data-loan] .loan-pay'));
+  ok(editedPay.includes('₩72,000') && editedPay.includes('₩60,200'), '카드 월 상환액도 수정값으로 재계산(72,000 → 60,200)', editedPay);
   /* 되돌리기 */
   const c1 = $$('#modalBody .loan-card[data-loan]')[0];
   click(c1.querySelector('[data-act="loan-edit"]'));
