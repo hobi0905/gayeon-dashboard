@@ -237,7 +237,7 @@ function seedState() {
       today: [],
       exams: SEED_EXAMS.map(([name, date, type, memo]) => ({ id: uid(), name, date, type, memo })),
     },
-    finance: { expenses: [], goals: [], invest: [], subs: [], planned: [], loans: seedLoans() },
+    finance: { expenses: [], goals: [], invest: [], subs: [], planned: [], loans: seedLoans(), customCategories: [] },
     wish: { want: [], need: [] },
     memo: { diary: [], habits: [], notes: [] },
     events: SEED_EVENTS.map(([title, date, end, start, endTime, category]) => ({
@@ -274,23 +274,35 @@ function normalize(s) {
   const base = seedState();
   const out = Object.assign({}, base, s);
   out.study = Object.assign({ month: [], week: [], today: [], exams: [] }, s.study || {});
-  out.finance = Object.assign({ expenses: [], goals: [], invest: [], subs: [], planned: [] }, s.finance || {});
+  out.finance = Object.assign({ expenses: [], goals: [], invest: [], subs: [], planned: [], customCategories: [] }, s.finance || {});
   out.finance.loans = normalizeLoans(out.finance.loans);
-  /* type이 없던 예전 지출 내역은 그대로 '지출'로 살린다 */
-  out.finance.expenses = (out.finance.expenses || []).filter(Boolean).map(e => Object.assign({}, e, {
-    type: e.type === 'income' ? 'income' : e.type === 'saving' ? 'saving' : 'expense',
-    amount: Math.abs(Number(e.amount) || 0),
-  }));
+  /* 사용자 정의 카테고리 — 문자열/객체 어느 쪽으로 저장됐어도 {name, icon, color}로 맞춘다 */
+  out.finance.customCategories = ((out.finance.customCategories || []).map(c => (typeof c === 'string' ? { name: c } : c) || {})
+    .filter(c => c && String(c.name || '').trim())
+    .map(c => ({ name: String(c.name).trim().slice(0, 12), icon: c.icon || '🏷️', color: c.color || '' })));
+  /* type이 없던 예전 지출 내역은 그대로 '지출'로 살리고, 옛 카테고리 이름은 새 이름으로 이어 준다 */
+  out.finance.expenses = (out.finance.expenses || []).filter(Boolean).map(e => {
+    const type = e.type === 'income' ? 'income' : e.type === 'saving' ? 'saving' : 'expense';
+    let cat = e.cat == null ? '' : String(e.cat);
+    if (type === 'expense' && LEGACY_EXPENSE_CAT[cat]) cat = LEGACY_EXPENSE_CAT[cat];
+    return Object.assign({}, e, { type, cat, amount: Math.abs(Number(e.amount) || 0) });
+  });
   /* startDate가 없는 기존 정기구독은 등록일(없으면 2026-11-28) 기준 다음 결제일로 자동 보정 */
   out.finance.subs = (out.finance.subs || []).filter(Boolean).map(sub => {
     const s = Object.assign({}, sub, {
       cycle: sub.cycle === 'yearly' ? 'yearly' : 'monthly',
       month: Math.min(12, Math.max(1, Number(sub.month) || 1)),
       day: Math.min(31, Math.max(1, Number(sub.day) || 1)),
+      /* 어느 카드로 결제하는지 적어 두는 메모 — 없던 구독은 빈 문자열 */
+      memo: typeof sub.memo === 'string' ? sub.memo : '',
     });
     if (!s.startDate) s.startDate = subStartDate(s);
     return s;
   });
+  /* 구매예정 항목도 카테고리를 갖는다 (없던 항목은 '구매예정') */
+  out.finance.planned = (out.finance.planned || []).filter(Boolean).map(p => Object.assign({}, p, {
+    cat: p.cat ? String(p.cat) : '구매예정',
+  }));
   out.wish = Object.assign({ want: [], need: [] }, s.wish || {});
   out.memo = Object.assign({ diary: [], habits: [], notes: [] }, s.memo || {});
   /* 메모의 태그는 나중에 붙은 속성 — 예전 메모는 빈 배열로 살린다 */
@@ -487,14 +499,76 @@ function examsOn(dateStr) {
   return state.study.exams.filter(e => e.date === dateStr);
 }
 /* 가계부 내역 종류 — type이 없는 예전 데이터는 전부 '지출'로 본다 */
-const EXPENSE_CATS = ['식비', '카페', '교통', '쇼핑', '생활', '병원·약', '공부', '여가', '대출·이자', '기타'];
+/* 지출 카테고리 — 토스 가계부 스크린샷의 소비 분류를 그대로 따르고, 쓰던 대출·이자·정기구독도 뒤에 남긴다 */
+const EXPENSE_CATS = [
+  '식비', '카페·간식', '편의점·마트·잡화', '술·유흥', '쇼핑', '여가',
+  '의료·건강·피트니스', '주거·통신', '보험·세금·기타금융', '미용', '교통·자동차', '여행·숙박',
+  '교육', '생활', '기부·후원', '이체', '카드대금', '후불결제대금', '대출·이자', '정기구독', '기타',
+];
 const INCOME_CATS = ['알바·급여', '용돈', '부수입·환급', '기타'];
 /* 📈 투자 탭에 아직 항목이 없을 때 저축 카테고리로 고를 수 있는 기본값 */
 const SAVING_FALLBACK_CATS = ['재무목표', '주식투자'];
+/* 카테고리 타일 아이콘 — 목록·선택 화면·사용자 정의 카테고리에 함께 쓴다 */
+const CATEGORY_ICONS = {
+  '식비': '🍚', '카페·간식': '☕', '편의점·마트·잡화': '🏪', '술·유흥': '🍺', '쇼핑': '🛒', '여가': '🎡',
+  '의료·건강·피트니스': '🏥', '주거·통신': '🏠', '보험·세금·기타금융': '🧾', '미용': '💄',
+  '교통·자동차': '🚗', '여행·숙박': '✈️', '교육': '🎓', '생활': '☀️', '기부·후원': '❤️',
+  '이체': '🔁', '카드대금': '💳', '후불결제대금': '🕐', '대출·이자': '🏦', '정기구독': '📺',
+  '기타': '🏷️', '구매예정': '🛍️', '잔액': '💰',
+};
+/* 카테고리마다 고정된 색 — 도넛에서 순위가 바뀌어도 같은 카테고리는 같은 색으로 보인다 */
+const CATEGORY_COLORS = {
+  '식비': '#3182F6', '카페·간식': '#00A66E', '편의점·마트·잡화': '#F5B300', '술·유흥': '#FB7A2B',
+  '쇼핑': '#F04452', '여가': '#8B5CF6', '의료·건강·피트니스': '#0FA3A3', '주거·통신': '#2563EB',
+  '보험·세금·기타금융': '#64748B', '미용': '#C026D3', '교통·자동차': '#38BDF8', '여행·숙박': '#0D9488',
+  '교육': '#B45309', '생활': '#84CC16', '기부·후원': '#EC4899', '이체': '#6366F1',
+  '카드대금': '#7E22CE', '후불결제대금': '#94A3B8', '대출·이자': '#475569', '정기구독': '#0891B2',
+  '기타': '#A0AEC0', '구매예정': '#B7791F', '잔액': '#38A169',
+};
+/* 사용자 정의 카테고리·옛 카테고리에 돌려 쓰는 팔레트 — 한 그래프 안에서 색이 겹치지 않게 골라 쓴다 */
+const CATEGORY_PALETTE = [
+  '#3182F6', '#00A66E', '#F5B300', '#FB7A2B', '#F04452', '#8B5CF6', '#0FA3A3', '#2563EB',
+  '#64748B', '#C026D3', '#38BDF8', '#0D9488', '#B45309', '#84CC16', '#EC4899', '#6366F1',
+  '#7E22CE', '#E11D48', '#0891B2', '#A16207', '#4D7C0F', '#BE123C', '#4338CA', '#0369A1',
+];
+/* 새 카테고리를 만들 때 고를 수 있는 아이콘 */
+const CATEGORY_ICON_CHOICES = ['🏷️', '🐶', '🎁', '💐', '🎂', '💊', '🏋️', '📚', '🎮', '💼', '🧺', '🚿'];
+/* 예전에 저장된 지출 카테고리를 새 이름으로 이어 준다 */
+const LEGACY_EXPENSE_CAT = { '카페': '카페·간식', '교통': '교통·자동차', '병원·약': '의료·건강·피트니스', '공부': '교육' };
 const isIncome = e => !!(e && e.type === 'income');
 const isSaving = e => !!(e && e.type === 'saving');
 const amtOf = e => Math.abs(Number(e && e.amount) || 0);
 const catOptionHtml = (cats, sel) => cats.map(c => `<option${c === sel ? ' selected' : ''}>${esc(c)}</option>`).join('');
+/* 문자열 → 팔레트 자리 (옛/알 수 없는 카테고리도 매번 같은 색) */
+function catHashOf(str) {
+  let h = 0;
+  for (const ch of String(str || '')) h = (h * 31 + ch.codePointAt(0)) % 100000;
+  return h;
+}
+/* 사용자 정의 카테고리 — 문자열로 저장된 옛 형태도 {name, icon, color}로 받아 준다 */
+function customCats() {
+  const raw = (state && state.finance && state.finance.customCategories) || [];
+  return raw.map(c => (typeof c === 'string' ? { name: c } : c) || {})
+    .filter(c => c && String(c.name || '').trim())
+    .map(c => ({ name: String(c.name).trim(), icon: c.icon || '🏷️', color: c.color || '' }));
+}
+function customCatNames() { return customCats().map(c => c.name); }
+function categoryIcon(cat) {
+  const own = customCats().find(c => c.name === cat);
+  return (own && own.icon) || CATEGORY_ICONS[cat] || '🏷️';
+}
+function categoryColor(cat) {
+  const own = customCats().find(c => c.name === cat);
+  if (own && own.color) return own.color;
+  if (CATEGORY_COLORS[cat]) return CATEGORY_COLORS[cat];
+  return CATEGORY_PALETTE[catHashOf(cat) % CATEGORY_PALETTE.length];
+}
+/* 지출 카테고리 = 기본 목록 + 사용자 정의(기타 바로 앞) */
+function expenseCatOptions() {
+  const base = EXPENSE_CATS.filter(c => c !== '기타');
+  const own = customCatNames().filter(n => !EXPENSE_CATS.includes(n));
+  return base.concat(own, ['기타']);
+}
 /* 저축 카테고리 = 📈 투자 탭의 재무목표·주식투자 항목과 자동 연동 */
 function savingCatOptions() {
   const out = [];
@@ -506,11 +580,157 @@ function savingCatOptions() {
 function catOptionsFor(type) {
   if (type === 'income') return INCOME_CATS;
   if (type === 'saving') return savingCatOptions();
-  return EXPENSE_CATS;
+  return expenseCatOptions();
 }
 const TYPE_LABEL = { expense: '지출', income: '수입', saving: '저축' };
 /* '지출'/'수입'/'저축' → 저장 키 */
 const typeKeyOf = label => (label === '수입' ? 'income' : label === '저축' ? 'saving' : 'expense');
+/* ───────────── 카테고리 타일 선택 (토스 가계부 스타일) ─────────────
+   실제 값은 품 안의 숨은 select가 들고 있고, 보이는 단추·목록은 그 select를 따라간다. */
+function catPickerHtml(name, cats, sel, kind = 'expense') {
+  const cur = cats.includes(sel) ? sel : (cats[0] || '기타');
+  return `<div class="cat-picker" data-cat-picker data-cat-kind="${esc(kind)}">
+      <select class="in money-cat cat-native" name="${esc(name)}" aria-label="카테고리">${catOptionHtml(cats, cur)}</select>
+      <button type="button" class="cat-pick-btn" data-cat-open aria-label="카테고리 바꾸기">
+        <i class="cat-ico" style="background:${categoryColor(cur)}">${categoryIcon(cur)}</i>
+        <span class="cat-name">${esc(cur)}</span>
+        <span class="cat-chev">⌄</span>
+      </button>
+    </div>`;
+}
+/* 숨은 select 값 → 단추의 아이콘·이름을 맞춘다 */
+function syncCatPicker(picker) {
+  if (!picker) return;
+  const sel = picker.querySelector('select');
+  const btn = picker.querySelector('[data-cat-open]');
+  if (!sel || !btn) return;
+  const cur = sel.value || '';
+  const ico = btn.querySelector('.cat-ico');
+  const name = btn.querySelector('.cat-name');
+  if (ico) { ico.textContent = categoryIcon(cur); ico.style.background = categoryColor(cur); }
+  if (name) name.textContent = cur;
+}
+/* 새 카테고리를 만든 뒤 페이지에 떠 있는 모든 picker의 목록을 맞춘다 (화면을 다시 그리지 않아 입력 중인 품이 살아 있다) */
+function refreshCatPickers() {
+  $$('[data-cat-picker]').forEach(p => {
+    const sel = p.querySelector('select');
+    if (!sel) return;
+    const kind = p.dataset.catKind || 'expense';
+    const cats = catOptionsFor(kind);
+    const cur = sel.value;
+    sel.innerHTML = catOptionHtml(cats, cats.includes(cur) ? cur : (cats[0] || '기타'));
+    syncCatPicker(p);
+  });
+}
+let catSheetEl = null, catSheetPicker = null;
+function closeCatSheet() {
+  if (catSheetEl) catSheetEl.remove();
+  catSheetEl = null; catSheetPicker = null;
+}
+function catSheetRowHtml(cat, on, kind) {
+  const own = kind === 'expense' && customCatNames().includes(cat);
+  return `<button type="button" class="cat-row${on ? ' on' : ''}" data-cat="${esc(cat)}">
+      <i class="cat-ico" style="background:${categoryColor(cat)}">${categoryIcon(cat)}</i>
+      <span class="cat-name">${esc(cat)}</span>
+      ${own ? '<span class="cat-badge">내 카테고리</span>' : ''}
+      ${on ? '<span class="cat-check">✓</span>' : ''}
+    </button>`;
+}
+function catSheetListHtml(picker, kind) {
+  const sel = picker && picker.querySelector('select');
+  const cur = sel ? sel.value : '';
+  const cats = sel ? Array.from(sel.options).map(o => o.value) : [];
+  return cats.map(c => catSheetRowHtml(c, c === cur, kind)).join('')
+    + (kind === 'expense' ? `<button type="button" class="cat-row add" data-cat-add>
+        <i class="cat-ico add">＋</i><span class="cat-name">새 카테고리 추가</span>
+      </button>` : '');
+}
+function catSheetAddHtml() {
+  return `<form class="cat-new" data-cat-new>
+      <div class="cat-new-row">
+        <input class="in" name="catName" placeholder="예: 반려동물, 경조사" maxlength="12" autocomplete="off" required>
+        <button class="btn primary" type="submit">추가</button>
+      </div>
+      <div class="cat-emoji-row">${CATEGORY_ICON_CHOICES.map((e, i) => `
+        <label class="cat-emoji"><input type="radio" name="catIcon" value="${e}"${i === 0 ? ' checked' : ''}><span>${e}</span></label>`).join('')}</div>
+      <div class="cat-new-hint">색은 자동으로 정해져요 · 만든 카테고리는 클라우드에도 함께 저장돼요</div>
+      <button type="button" class="cat-new-cancel" data-cat-add-cancel>취소</button>
+    </form>`;
+}
+function openCatSheet(picker) {
+  closeCatSheet();
+  if (!picker) return;
+  const kind = picker.dataset.catKind || 'expense';
+  const wrap = document.createElement('div');
+  wrap.className = 'cat-sheet-wrap';
+  const label = kind === 'income' ? '수입' : kind === 'saving' ? '저축' : '지출';
+  wrap.innerHTML = `
+    <div class="cat-sheet-mask" data-cat-close></div>
+    <div class="cat-sheet" role="dialog" aria-modal="true" aria-label="카테고리 선택">
+      <div class="cat-sheet-grip"></div>
+      <div class="cat-sheet-head"><b>변경할 ${label} 카테고리를 선택해주세요</b><button type="button" class="icon-x" data-cat-close aria-label="닫기">✕</button></div>
+      <div class="cat-sheet-list">${catSheetListHtml(picker, kind)}</div>
+    </div>`;
+  document.body.appendChild(wrap);
+  catSheetEl = wrap; catSheetPicker = picker;
+  wrap.addEventListener('click', ev => {
+    if (ev.target.closest('[data-cat-close]')) return closeCatSheet();
+    if (ev.target.closest('[data-cat-add]')) {
+      const list = wrap.querySelector('.cat-sheet-list');
+      if (list) list.innerHTML = catSheetAddHtml();
+      const inp = wrap.querySelector('[name="catName"]');
+      if (inp) setTimeout(() => inp.focus(), 30);
+      return;
+    }
+    if (ev.target.closest('[data-cat-add-cancel]')) {
+      const list = wrap.querySelector('.cat-sheet-list');
+      if (list) list.innerHTML = catSheetListHtml(catSheetPicker, catSheetPicker ? (catSheetPicker.dataset.catKind || 'expense') : 'expense');
+      return;
+    }
+    const row = ev.target.closest('[data-cat]');
+    if (row) { pickCatValue(catSheetPicker, row.dataset.cat); closeCatSheet(); }
+  });
+  wrap.addEventListener('submit', ev => {
+    if (!ev.target.closest('[data-cat-new]')) return;
+    ev.preventDefault();
+    addCustomCategoryFromForm(ev.target);
+  });
+}
+/* 고른 카테고리를 picker에 넣고 화면 단추를 맞춘다 */
+function pickCatValue(picker, cat) {
+  if (!picker || !cat) return;
+  const sel = picker.querySelector('select');
+  if (!sel) return;
+  if (!Array.from(sel.options).some(o => o.value === cat)) {
+    const o = document.createElement('option');
+    o.value = cat; o.textContent = cat;
+    sel.appendChild(o);
+  }
+  sel.value = cat;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  syncCatPicker(picker);
+}
+/* 새 카테고리 저장 — 화면을 통째로 다시 그리지 않아 입력 중이던 금액·날짜가 남는다 */
+function addCustomCategoryFromForm(form) {
+  const picker = catSheetPicker;
+  const raw = (form.querySelector('[name="catName"]') || {}).value || '';
+  const name = String(raw).trim().replace(/\s+/g, ' ').slice(0, 12);
+  if (!name) { toast('카테고리 이름을 적어 주세요'); return; }
+  if (EXPENSE_CATS.includes(name) || customCatNames().includes(name)) {
+    toast(`‘${name}’은(는) 이미 있는 카테고리예요`);
+    return;
+  }
+  const iconEl = form.querySelector('[name="catIcon"]:checked');
+  const icon = (iconEl && iconEl.value) || '🏷️';
+  const used = customCats().map(c => c.color).filter(Boolean);
+  const color = CATEGORY_PALETTE.find(p => !used.includes(p)) || CATEGORY_PALETTE[customCats().length % CATEGORY_PALETTE.length];
+  state.finance.customCategories = (state.finance.customCategories || []).concat([{ name, icon, color }]);
+  commit({ soft: true });
+  refreshCatPickers();
+  pickCatValue(picker, name);
+  closeCatSheet();
+  toast(`‘${name}’ 카테고리를 추가했어요`);
+}
 const moneySign = e => (isIncome(e) ? '＋' : isSaving(e) ? '↗' : '−');
 const moneyPillCls = e => (isIncome(e) ? 'income' : isSaving(e) ? 'saving' : 'out');
 function entriesOn(dateStr) {
@@ -539,7 +759,7 @@ function moneyFormHtml(dateStr) {
       ${F_CELL('내역', '<input class="in" name="title" placeholder="예: 점심 김밥" maxlength="50" autocomplete="off" required>', 'w2')}
       ${F_CELL('금액', '<input class="in num" name="amount" inputmode="numeric" placeholder="0" required>')}
       ${F_CELL('종류', `<select class="in money-type" name="type" aria-label="종류"><option value="expense">지출</option><option value="income">수입</option><option value="saving">저축</option></select>`)}
-      ${F_CELL('카테고리', `<select class="in money-cat" name="cat" aria-label="카테고리">${catOptionHtml(EXPENSE_CATS)}</select>`, 'w2')}
+      <div class="fld cat-fld w2"><span>카테고리</span>${catPickerHtml('cat', expenseCatOptions(), '식비', 'expense')}</div>
       <button class="btn primary" type="submit">추가</button>
     </form>`;
 }
@@ -717,10 +937,12 @@ function plannedOn(dateStr) {
     .forEach(s => out.push({
       name: s.name, amount: Number(s.amount) || 0,
       kind: s.cycle === 'yearly' ? '정기구독 · 매년' : '정기구독',
-      cat: '정기구독',
+      cat: s.cat || '정기구독',
+      memo: s.memo || '',
+      subId: s.id,
     }));
   state.finance.planned.filter(p => p.date === dateStr)
-    .forEach(p => out.push({ name: p.name, amount: Number(p.amount) || 0, kind: '구매예정', cat: '구매예정' }));
+    .forEach(p => out.push({ name: p.name, amount: Number(p.amount) || 0, kind: '구매예정', cat: p.cat || '구매예정', memo: p.memo || '' }));
   /* 대출 납부(15일) — 매달 자동 계산 */
   loanRowsOn(dateStr).forEach(r => out.push(r));
   return out;
@@ -1140,7 +1362,7 @@ function finDayPanel() {
       </div>`).join('')}</div>` : (carry ? '' : '<div class="empty">이 날 쓴 내역이 없어요</div>')}
     ${plans.length ? `<div class="row-list">${plans.map(p => `
       <div class="drow" style="border-style:dashed">
-        <span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span>
+        <span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span>${p.memo ? `<span class="cat-memo">💳 ${esc(p.memo)}</span>` : ''}</span>
         <span class="dday-pill plan">−₩${won(p.amount)}</span>
       </div>`).join('')}</div>` : ''}
     ${moneyFormHtml(ds)}
@@ -1196,17 +1418,20 @@ function renderFinanceModal() {
       ${subs.length ? `<div class="row-list">${subs.map(s => `
         <div class="drow">
           <button class="switch ${s.active ? 'on' : ''}" data-act="sub-toggle" data-id="${s.id}" aria-label="활성"></button>
-          <span class="grow"><b>${esc(s.name)}</b> <span class="muted">${esc(subCycleLabel(s))}${s.startDate ? ` · ${subStartLabel(s)}` : ''}</span></span>
+          <i class="cat-ico sm" style="background:${categoryColor(s.cat || '정기구독')}" title="${esc(s.cat || '정기구독')}">${categoryIcon(s.cat || '정기구독')}</i>
+          <span class="grow"><b>${esc(s.name)}</b> <span class="muted">${esc(subCycleLabel(s))}${s.startDate ? ` · ${subStartLabel(s)}` : ''}</span>${s.memo ? `<span class="cat-memo">💳 ${esc(s.memo)}</span>` : ''}</span>
           <span class="dday-pill">₩${won(s.amount)}${s.cycle === 'yearly' ? '<small> /년</small>' : ''}</span>
-          <button class="icon-x" data-act="sub-edit" data-id="${s.id}">✏️</button>
-          <button class="icon-x" data-act="sub-del" data-id="${s.id}">✕</button>
+          <button class="icon-x" data-act="sub-edit" data-id="${s.id}" title="수정">✏️</button>
+          <button class="icon-x" data-act="sub-del" data-id="${s.id}" title="삭제">✕</button>
         </div>`).join('')}</div>` : '<div class="empty">활성 구독은 결제일마다 캘린더에 예정 금액으로 자동 표시돼요</div>'}
       <form class="add-form" data-form="sub">
         ${F_CELL('서비스명', '<input class="in" name="name" placeholder="예: 유튜브 프리미엄" maxlength="40" required>', 'w2')}
         ${F_CELL('금액', '<input class="in num" name="amount" inputmode="numeric" placeholder="0" required>')}
         ${F_CELL('주기', '<select class="in cycle-select" name="cycle"><option value="monthly">매달</option><option value="yearly">매년</option></select>')}
+        <div class="fld cat-fld w2"><span>카테고리</span>${catPickerHtml('cat', expenseCatOptions(), '정기구독', 'expense')}</div>
         <label class="fld month"><span>월</span><select class="in sub-month" name="month">${monthOptions(1)}</select></label>
         <label class="fld day"><span>결제일</span><select class="in sub-day" name="day">${dayOptions(1)}</select></label>
+        ${F_CELL('결제수단/메모 ' + F_OPT, '<input class="in" name="memo" placeholder="예: 신한 체크, 토스뱅크" maxlength="40" autocomplete="off">', 'full')}
         <button class="btn primary" type="submit">추가</button>
       </form>
       <div class="hint" style="font-size:12px;color:#a2b3c0;line-height:1.6">매달 = 매월 그 날, 매년 = 그 달·그 날. 등록한 날 기준 <b>다음 결제일이 이번 달이면 이번 달부터, 지났으면 다음 달부터</b> 표시되고, 31일처럼 없는 날은 그 달 말일로 맞춰요.</div>
@@ -1397,7 +1622,7 @@ function financeMonthItems(kind) {
       .map(e => ({ id: e.id, date: e.date, title: e.title, cat: e.cat || '기타', amount: amtOf(e) }));
     for (let d = 1; d <= daysInMonth(y, m - 1); d++) {
       const ds = `${prefix}-${pad2(d)}`;
-      plannedOn(ds).forEach(p => rows.push({ date: ds, title: p.name, cat: p.cat || p.kind, amount: Number(p.amount) || 0, planned: true, loan: !!p.loan }));
+      plannedOn(ds).forEach(p => rows.push({ date: ds, title: p.name, cat: p.cat || p.kind, amount: Number(p.amount) || 0, planned: true, loan: !!p.loan, memo: p.memo || '' }));
     }
     return rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.id || '').localeCompare(String(b.id || '')));
   }
@@ -1434,16 +1659,28 @@ function chartParts(items) {
   return { total, rows: rows.map((r, i) => Object.assign({}, r, { pct: pcts[i] })) };
 }
 
-/* 도넛 차트 — 색은 테마별 --chart-1~8 팔레트 */
-function donutSvg(rows, total) {
+/* 도넛 차트 — 카테고리마다 색이 고정되고, 같은 그래프 안에서는 색이 겹치지 않는다 */
+function chartColorMap(rows) {
+  const used = new Set();
+  const map = {};
+  (rows || []).forEach(r => {
+    let c = categoryColor(r.cat);
+    if (used.has(c)) c = CATEGORY_PALETTE.find(p => !used.has(p)) || c;
+    used.add(c);
+    map[r.cat] = c;
+  });
+  return map;
+}
+function donutSvg(rows, total, colorMap) {
+  const cm = colorMap || chartColorMap(rows);
   const R = 56, SW = 18, C = 2 * Math.PI * R;
   let acc = 0;
   const segs = rows.map((r, i) => {
     const len = r.pct / 100 * C;
     const gap = rows.length > 1 && len > 6 ? 2.5 : 0;
     const dash = Math.max(0.5, len - gap);
-    const seg = `<circle class="dseg" cx="80" cy="80" r="${R}" fill="none" stroke="var(--chart-${i % 8 + 1})" stroke-width="${SW}"`
-      + ` stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 80 80)"></circle>`;
+    const seg = `<circle class="dseg" cx="80" cy="80" r="${R}" fill="none" stroke="${cm[r.cat] || categoryColor(r.cat)}" stroke-width="${SW}"`
+      + ` data-cat="${esc(r.cat)}" stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 80 80)"></circle>`;
     acc += len;
     return seg;
   }).join('');
@@ -1455,10 +1692,11 @@ function donutSvg(rows, total) {
   </svg>`;
 }
 
-function chartLegendHtml(rows) {
+function chartLegendHtml(rows, colorMap) {
+  const cm = colorMap || chartColorMap(rows);
   return `<ul class="chart-legend">${rows.map((r, i) => `
     <li>
-      <i class="sw" style="background:var(--chart-${i % 8 + 1})"></i>
+      <i class="sw" style="background:${cm[r.cat] || categoryColor(r.cat)}"></i>
       <span class="lb">${esc(r.cat)}</span>
       <span class="pc">${r.pct}%</span>
       <span class="am">₩${won(r.amount)}</span>
@@ -1472,10 +1710,11 @@ function renderFinanceDetailModal(kind) {
   const y = finMonth.getFullYear(), m = finMonth.getMonth() + 1;
   const items = financeMonthItems(key);
   const { total, rows } = chartParts(items);
+  const colorMap = chartColorMap(rows);
   /* 합계는 이월(마이너스 포함)·예정까지 그대로 더한 값 — 도넛은 양수 카테고리만 */
   const sum = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
   const chart = rows.length
-    ? `<div class="chart-wrap">${donutSvg(rows, total)}<div class="chart-side">${chartLegendHtml(rows)}</div></div>`
+    ? `<div class="chart-wrap">${donutSvg(rows, total, colorMap)}<div class="chart-side">${chartLegendHtml(rows, colorMap)}</div></div>`
     : `<div class="chart-empty">${m}월 ${meta.short} 내역이 없어서 보여줄 비율이 없어요 🩵</div>`;
   const notes = [];
   if (items.some(i => i.planned && !i.loan)) notes.push('정기구독·구매예정 포함');
@@ -1488,7 +1727,7 @@ function renderFinanceDetailModal(kind) {
       return `
       <div class="fd-row">
         <span class="fd-date">${fmtDateShort(i.date)}</span>
-        <span class="fd-title">${esc(i.title)}</span>
+        <span class="fd-title">${esc(i.title)}${i.memo ? `<span class="cat-memo">💳 ${esc(i.memo)}</span>` : ''}</span>
         <span class="fd-cat">${esc(i.cat || '기타')}</span>
         ${i.planned ? `<span class="fd-flag${i.loan ? ' auto' : ''}">${i.loan ? '대출' : '예정'}</span>` : ''}
         <span class="fd-amt ${meta.pill}">${sign}₩${won(Math.abs(Number(i.amount) || 0))}</span>
@@ -1691,7 +1930,7 @@ function renderDayModal(dateStr) {
         </div>`).join('')}</div>` : '<div class="empty">아직 기록이 없어요</div>'}
       ${plans.length ? `<div class="row-list">${plans.map(p => `
         <div class="drow" style="border-style:dashed">
-          <span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span></span>
+          <span class="grow">${esc(p.name)} <span class="muted">${esc(p.kind)}</span>${p.memo ? `<span class="cat-memo">💳 ${esc(p.memo)}</span>` : ''}</span>
           <span class="dday-pill plan">−₩${won(p.amount)}</span>
         </div>`).join('')}</div>` : ''}
       ${moneyFormHtml(ds)}
@@ -1979,6 +2218,7 @@ function askPrompt(opts) {
     wrap.className = 'prompt';
     const control = f => {
       const attrs = `name="${esc(f.key)}" ${f.inputmode ? `inputmode="${esc(f.inputmode)}"` : ''}`;
+      if (f.type === 'category') return catPickerHtml(f.key, f.options || expenseCatOptions(), f.value, f.kind || 'expense');
       if (f.type === 'select') return `<select class="in" ${attrs}>${(f.options || []).map(o => `<option ${o === f.value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
       if (f.type === 'date') return `<span class="date-shell is-empty" data-ph="날짜 선택"><input class="in" type="date" ${attrs} value="${esc(f.value == null ? '' : f.value)}"></span>`;
       if (f.type === 'textarea') return `<textarea class="in" ${attrs} rows="${Number(f.rows) || 3}" placeholder="${esc(f.placeholder || '')}" maxlength="${Number(f.maxlength) || 2000}">${esc(f.value == null ? '' : f.value)}</textarea>`;
@@ -1987,7 +2227,10 @@ function askPrompt(opts) {
     /* 날짜·소태그·본문은 폭을 다 잡고, 나머지는 두 칸 그리드에 놓는다 */
     const fieldHtml = f => {
       const wide = f.full || f.type === 'date' || f.type === 'textarea';
-      return `<label class="pf${f.type === 'date' ? ' date' : ''}${wide ? ' full' : ''}">
+      const cls = `pf${f.type === 'date' ? ' date' : ''}${wide ? ' full' : ''}`;
+      /* 카테고리 타일은 단추를 품으므로 label 대신 div로 감싼다 (label 클릭이 숨은 select를 건드리지 않도록) */
+      if (f.type === 'category') return `<div class="${cls}"><span>${esc(f.label || '')}</span>${control(f)}</div>`;
+      return `<label class="${cls}">
         <span>${esc(f.label || '')}</span>
         ${control(f)}
       </label>`;
@@ -2086,7 +2329,9 @@ const FORMS = {
     if (day < 1) day = 1; if (day > 31) day = 31;
     const cycle = fv(form, 'cycle') === 'yearly' ? 'yearly' : 'monthly';
     const month = Math.min(12, Math.max(1, clampNum(fv(form, 'month')) || 1));
-    const sub = { id: uid(), name, amount, day, cycle, month, active: true, createdAt: todayISO() };
+    const cat = fv(form, 'cat') || '정기구독';
+    const memo = fv(form, 'memo');
+    const sub = { id: uid(), name, amount, day, cycle, month, active: true, cat, memo, createdAt: todayISO() };
     /* 등록일 기준 다음 결제일 → 이번 달 결제일이 지났으면 다음 달부터 */
     sub.startDate = nextSubDate(sub, todayISO());
     state.finance.subs.push(sub);
@@ -2149,12 +2394,24 @@ document.addEventListener('change', ev => {
   const sel = ev.target.closest('[data-form="expense"] select[name="type"]');
   if (!sel) return;
   const form = sel.closest('[data-form="expense"]');
-  const catSel = form && form.querySelector('select[name="cat"]');
+  const picker = form && form.querySelector('[data-cat-picker]');
+  const catSel = picker && picker.querySelector('select');
   if (!catSel) return;
   const type = sel.value === 'income' ? 'income' : sel.value === 'saving' ? 'saving' : 'expense';
   catSel.innerHTML = catOptionHtml(catOptionsFor(type));
+  picker.dataset.catKind = type;
+  syncCatPicker(picker);
   form.classList.toggle('is-income', type === 'income');
   form.classList.toggle('is-saving', type === 'saving');
+});
+
+/* 카테고리 타일 단추 → 목록 열기 */
+document.addEventListener('click', ev => {
+  const btn = ev.target.closest && ev.target.closest('[data-cat-open]');
+  if (!btn) return;
+  ev.preventDefault();
+  const picker = btn.closest('[data-cat-picker]');
+  if (picker) openCatSheet(picker);
 });
 
 /* 빈 날짜 칸 안내 문구 — 값이 생길거나 지워지면 바로 반영 */
@@ -2278,7 +2535,7 @@ document.addEventListener('click', async ev => {
         fields: [
           { key: 'date', label: '날짜', type: 'date', value: e.date },
           { key: 'type', label: '종류', type: 'select', options: ['지출', '수입', '저축'], value: TYPE_LABEL[type0] },
-          { key: 'cat', label: '카테고리', type: 'select', options: cats0, value: cats0.includes(e.cat) ? e.cat : cats0[0] },
+          { key: 'cat', label: '카테고리', type: 'category', kind: type0, options: cats0, value: cats0.includes(e.cat) ? e.cat : cats0[0] },
           { key: 'title', label: '내역', value: e.title, full: true },
           { key: 'amount', label: '금액', value: amtOf(e), inputmode: 'numeric' },
           { key: 'memo', label: '메모 (선택)', value: e.memo || '' },
@@ -2287,12 +2544,15 @@ document.addEventListener('click', async ev => {
         /* 지출 ↔ 수입 ↔ 저축을 바꾸면 카테고리 목록이 그 종류에 맞춰 통째로 바뀐다 */
         onChange: (key, val, wrap) => {
           if (key !== 'type') return;
-          const catSel = wrap.querySelector('[name="cat"]');
+          const picker = wrap.querySelector('[data-cat-picker]');
+          const catSel = picker && picker.querySelector('select');
           if (!catSel) return;
           const t = typeKeyOf(val);
           const cats = catOptionsFor(t);
           const cur = catSel.value;
           catSel.innerHTML = catOptionHtml(cats, cats.includes(cur) ? cur : cats[0]);
+          picker.dataset.catKind = t;
+          syncCatPicker(picker);
           wrap.classList.toggle('is-income', t === 'income');
           wrap.classList.toggle('is-saving', t === 'saving');
         },
@@ -2325,6 +2585,8 @@ document.addEventListener('click', async ev => {
           { key: 'cycle', label: '주기', type: 'select', options: ['매달', '매년'], value: s.cycle === 'yearly' ? '매년' : '매달' },
           { key: 'month', label: '월 (매년일 때)', type: 'select', options: Array.from({ length: 12 }, (_, i) => `${i + 1}월`), value: `${s.month || 1}월` },
           { key: 'day', label: '일', type: 'select', options: Array.from({ length: 31 }, (_, i) => `${i + 1}일`), value: `${s.day || 1}일` },
+          { key: 'cat', label: '카테고리', type: 'category', kind: 'expense', options: expenseCatOptions(), value: expenseCatOptions().includes(s.cat) ? s.cat : '정기구독' },
+          { key: 'memo', label: '결제수단/메모 (선택)', value: s.memo || '', full: true, placeholder: '예: 신한 체크, 토스뱅크' },
         ], confirmText: '저장',
       });
       if (!r) break;
@@ -2338,6 +2600,8 @@ document.addEventListener('click', async ev => {
         cycle: nextCycle,
         month: nextMonth,
         day: nextDay,
+        cat: r.cat || s.cat || '정기구독',
+        memo: String(r.memo || '').trim(),
       });
       /* 결제일·주기를 바꾸면 오늘 기준 다음 결제일로 다시 잡는다 (금액만 고칠 땐 그대로) */
       if (scheduleChanged) s.startDate = nextSubDate(s, todayISO());
@@ -2477,13 +2741,14 @@ document.addEventListener('click', async ev => {
         fields: [
           { key: 'date', label: '구매 예정일', type: 'date', value: todayISO() },
           { key: 'amount', label: '금액', value: n.price || '', inputmode: 'numeric' },
+          { key: 'cat', label: '카테고리', type: 'category', kind: 'expense', options: ['구매예정'].concat(expenseCatOptions()), value: n.plannedCat || '구매예정' },
         ], confirmText: '넘기기',
       });
       if (!r || !r.date) break;
       const amount = clampNum(r.amount) || Number(n.price) || 0;
-      n.status = '예정'; n.plannedDate = r.date; n.plannedAmount = amount;
+      n.status = '예정'; n.plannedDate = r.date; n.plannedAmount = amount; n.plannedCat = r.cat || '구매예정';
       state.finance.planned = state.finance.planned.filter(p => p.needId !== n.id);
-      state.finance.planned.push({ id: uid(), needId: n.id, name: n.name, date: r.date, amount });
+      state.finance.planned.push({ id: uid(), needId: n.id, name: n.name, date: r.date, amount, cat: n.plannedCat });
       n.price = n.price || amount;
       commit(); toast('가계부 캘린더에 예정 지출로 넣었어요');
       break;
@@ -2496,13 +2761,14 @@ document.addEventListener('click', async ev => {
         fields: [
           { key: 'date', label: '구매일', type: 'date', value: n.plannedDate || todayISO() },
           { key: 'amount', label: '금액', value: n.plannedAmount || n.price || '', inputmode: 'numeric' },
+          { key: 'cat', label: '카테고리', type: 'category', kind: 'expense', options: expenseCatOptions(), value: (n.plannedCat && n.plannedCat !== '구매예정') ? n.plannedCat : '쇼핑' },
         ], confirmText: '완료',
       });
       if (!r || !r.date) break;
       const amount = clampNum(r.amount) || Number(n.price) || 0;
       n.status = '완료'; n.boughtDate = r.date; n.boughtAmount = amount;
       state.finance.planned = state.finance.planned.filter(p => p.needId !== n.id);
-      state.finance.expenses.push({ id: uid(), date: r.date, title: n.name, amount, cat: '쇼핑', type: 'expense', memo: 'Wishlist 구매' });
+      state.finance.expenses.push({ id: uid(), date: r.date, title: n.name, amount, cat: r.cat || '쇼핑', type: 'expense', memo: 'Wishlist 구매' });
       commit(); toast('구매 완료 · 가계부에 지출로 기록했어요');
       break;
     }
@@ -3170,6 +3436,8 @@ window.__GD = {
   plannedOn, subCycleLabel, normalize, financeStats, spentOn, incomeOn, entriesOn,
   financeMonthItems, chartParts, donutSvg,
   nextSubDate, subStartDate, savingCatOptions, catOptionsFor, savedOn, carryoverAmount, carryoverOn,
+  expenseCatOptions, customCats, categoryColor, categoryIcon, chartColorMap, openCatSheet,
+  CATEGORY_COLORS, CATEGORY_PALETTE, LEGACY_EXPENSE_CAT,
   monthFlow, renderAll,
   loanRowsOn, loanChargeAt, loanMonthTotal, loanDateIn, loanRemaining, loanRemainingTotal,
   loanTotalPrincipal, loanRepayEnd, loanStatusOf, debtSectionHtml, normalizeLoans,

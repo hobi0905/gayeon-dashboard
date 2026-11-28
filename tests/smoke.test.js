@@ -912,7 +912,8 @@ const wonNum = n => Number(n || 0).toLocaleString('ko-KR');
   const thirds = w.__GD.chartParts([{ cat: 'A', amount: 1 }, { cat: 'B', amount: 1 }, { cat: 'C', amount: 1 }]);
   ok(thirds.rows.reduce((s, r) => s + r.pct, 0) === 100, '나눠떨어지지 않아도 합 100', thirds.rows.map(r => r.pct).join(','));
   ok(w.__GD.chartParts([]).total === 0 && w.__GD.chartParts([]).rows.length === 0, '내역이 없으면 빈 차트');
-  ok(String(w.__GD.donutSvg([{ cat: 'A', amount: 1, pct: 100 }], 1)).includes('var(--chart-1)'), '도넛 색은 테마 팔레트 변수');
+  const dsvg = String(w.__GD.donutSvg([{ cat: '식비', amount: 1, pct: 100 }], 1));
+  ok(dsvg.includes('stroke="#3182F6"'), '도넛 색은 카테고리 고정 색(식비 = 파랑)', dsvg.slice(0, 180));
   ok(/:root\{[^}]*--chart-1:/.test(css) && /body\[data-theme="xmas"\]\{[^}]*--chart-1:/.test(css), '파스텔 하늘·크리스마스 두 테마 차트 팔레트');
   ok(/\.stat-btn\{/.test(css) && /\.stat-go\{/.test(css) && /\.chart-legend\{/.test(css), '요약 카드·범례 스타일');
 
